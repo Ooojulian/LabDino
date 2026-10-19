@@ -8,7 +8,7 @@ from labdino.preprocessing import Vocab, build_dataset, load_names
 from labdino.training import evaluate, make_loss, split_train_val
 
 ROOT = Path(__file__).resolve().parents[1]
-CKPT = ROOT / "name_generator" / "artifacts" / "checkpoint_B.pt"
+CKPT = ROOT / "evidence" / "checkpoints" / "checkpoint_B.pt"
 
 
 @pytest.mark.skipif(not CKPT.exists(), reason="checkpoint_B.pt no existe")
@@ -18,7 +18,7 @@ def test_checkpoint_b_reproduces_best_val_loss():
     X, Y, _ = build_dataset(names, vocab)
     _, val = split_train_val(X, Y, val_fraction=0.1, seed=42)
 
-    ckpt = torch.load(CKPT, map_location="cpu")
+    ckpt = torch.load(CKPT, map_location="cpu", weights_only=True)
     model = CharRNN(ModelConfig(**ckpt["model_config"]))
     model.load_state_dict(ckpt["state_dict"])
 

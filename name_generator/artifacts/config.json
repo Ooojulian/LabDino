@@ -1,0 +1,34 @@
+{
+  "architecture": "GRU",
+  "num_layers": 2,
+  "hidden_size": 256,
+  "dropout": 0.2,
+  "model": {
+    "vocab_size": 29,
+    "cell": "gru",
+    "embedding_dim": 32,
+    "hidden_size": 256,
+    "num_layers": 2,
+    "dropout": 0.2,
+    "pad_id": 0
+  },
+  "T": 27,
+  "special_tokens": {
+    "pad": 0,
+    "sos": 1,
+    "eos": 2
+  },
+  "default_sampling": {
+    "temperature": 1.0,
+    "top_k": null,
+    "top_p": 0.9
+  },
+  "selection": {
+    "criterion": "menor pérdida de validación",
+    "config": "B",
+    "best_epoch": 8,
+    "best_val_loss": 1.558889627456665,
+    "seed": 42,
+    "val_fraction": 0.1
+  }
+}
