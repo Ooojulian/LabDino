@@ -1,0 +1,46 @@
+{
+  "criterion": "menor pérdida de validación",
+  "winner": "B",
+  "configs": [
+    {
+      "config": "A",
+      "architecture": "GRU",
+      "num_layers": 1,
+      "hidden_size": 128,
+      "embedding_dim": 32,
+      "dropout": 0.0,
+      "epochs_run": 23,
+      "max_epochs": 100,
+      "patience": 10,
+      "loss": "CrossEntropyLoss(ignore_index=<PAD>)",
+      "optimizer": "Adam",
+      "lr": 0.003,
+      "batch_size": 64,
+      "seed": 42,
+      "n_params": 66877,
+      "best_val_loss": 1.5715587139129639,
+      "best_epoch": 13,
+      "final_train_loss": 1.0912563004675029
+    },
+    {
+      "config": "B",
+      "architecture": "GRU",
+      "num_layers": 2,
+      "hidden_size": 256,
+      "embedding_dim": 32,
+      "dropout": 0.2,
+      "epochs_run": 18,
+      "max_epochs": 100,
+      "patience": 10,
+      "loss": "CrossEntropyLoss(ignore_index=<PAD>)",
+      "optimizer": "Adam",
+      "lr": 0.003,
+      "batch_size": 64,
+      "seed": 42,
+      "n_params": 625853,
+      "best_val_loss": 1.558889627456665,
+      "best_epoch": 8,
+      "final_train_loss": 0.8045471169331946
+    }
+  ]
+}
