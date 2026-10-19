@@ -1,0 +1,144 @@
+{
+  "chosen_strategy": "top-p=0.9 (T=1.0)",
+  "chosen_name": "doractodon",
+  "generated_names": [
+    "alapentosaurus",
+    "salimimus",
+    "gatarisaurus",
+    "doractodon",
+    "kematentaceratops",
+    "revecterris",
+    "mamusaurus",
+    "sauroreptor",
+    "yadanoceratops",
+    "drachyrosuchus"
+  ],
+  "strategies": [
+    {
+      "name": "T=0.5",
+      "temperature": 0.5,
+      "top_k": null,
+      "top_p": null,
+      "seed": 42,
+      "metrics": {
+        "n_samples": 1000,
+        "copy_rate": 0.07,
+        "repeat_rate": 0.14500000000000002,
+        "mean_length": 11.57,
+        "short_rate": 0.0
+      },
+      "examples": [
+        "argantosaurus",
+        "antarchisaurus",
+        "ornithosaurus",
+        "coratosaurus",
+        "krachyrophosaurus"
+      ]
+    },
+    {
+      "name": "T=1.0",
+      "temperature": 1.0,
+      "top_k": null,
+      "top_p": null,
+      "seed": 42,
+      "metrics": {
+        "n_samples": 1000,
+        "copy_rate": 0.01,
+        "repeat_rate": 0.0020000000000000018,
+        "mean_length": 11.971,
+        "short_rate": 0.002
+      },
+      "examples": [
+        "argaraptops",
+        "pacavelia",
+        "oovenator",
+        "cosconosaurus",
+        "kfegmoraptor"
+      ]
+    },
+    {
+      "name": "T=1.5",
+      "temperature": 1.5,
+      "top_k": null,
+      "top_p": null,
+      "seed": 42,
+      "metrics": {
+        "n_samples": 1000,
+        "copy_rate": 0.001,
+        "repeat_rate": 0.0030000000000000027,
+        "mean_length": 13.148,
+        "short_rate": 0.008
+      },
+      "examples": [
+        "augaraptrpnyk",
+        "pocavclikamidocrechiy",
+        "oovenatespiwuus",
+        "wusclnonys",
+        "kfezmoriam"
+      ]
+    },
+    {
+      "name": "top-k=5 (T=1.0)",
+      "temperature": 1.0,
+      "top_k": 5,
+      "top_p": null,
+      "seed": 42,
+      "metrics": {
+        "n_samples": 1000,
+        "copy_rate": 0.044,
+        "repeat_rate": 0.07599999999999996,
+        "mean_length": 11.634,
+        "short_rate": 0.0
+      },
+      "examples": [
+        "argaraptops",
+        "pacampondylus",
+        "sarcharendia",
+        "corathonychus",
+        "precovenator"
+      ]
+    },
+    {
+      "name": "top-k=3 (T=1.0)",
+      "temperature": 1.0,
+      "top_k": 3,
+      "top_p": null,
+      "seed": 42,
+      "metrics": {
+        "n_samples": 1000,
+        "copy_rate": 0.107,
+        "repeat_rate": 0.384,
+        "mean_length": 11.496,
+        "short_rate": 0.0
+      },
+      "examples": [
+        "argantosaurus",
+        "parasaurus",
+        "sanchiasaurus",
+        "sinosaurus",
+        "procoraptor"
+      ]
+    },
+    {
+      "name": "top-p=0.9 (T=1.0)",
+      "temperature": 1.0,
+      "top_k": null,
+      "top_p": 0.9,
+      "seed": 42,
+      "metrics": {
+        "n_samples": 1000,
+        "copy_rate": 0.012,
+        "repeat_rate": 0.01100000000000001,
+        "mean_length": 11.646,
+        "short_rate": 0.0
+      },
+      "examples": [
+        "argaraptor",
+        "pacampondylus",
+        "ornithosaurus",
+        "cosconosaurus",
+        "krecpracon"
+      ]
+    }
+  ]
+}

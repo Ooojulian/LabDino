@@ -65,3 +65,42 @@ def save_summary(rows: list[dict], winner: str, criterion: str, out_dir: Path) -
               "época de validación, no el último.", "",
               "![comparativa](loss_curves_comparison.png)", ""]
     (out_dir / "training_summary.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+def save_sampling(
+    strategies: list[dict], names: list[str], chosen: str, chosen_strategy: str, analysis: str, out_dir: Path
+) -> None:
+    """sampling_configs.json + generated_names.md (10 nombres, comparación, análisis y elegido)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "sampling_configs.json").write_text(
+        json.dumps(
+            {"chosen_strategy": chosen_strategy, "chosen_name": chosen, "generated_names": names, "strategies": strategies},
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    lines = [
+        "# Nombres generados",
+        "",
+        f"Estrategia usada para los 10 nombres: **{chosen_strategy}**. Nombre elegido: **{chosen.capitalize()}**.",
+        "",
+        "## Los 10 nombres (ninguno está en el conjunto de entrenamiento)",
+        "",
+        *[f"{i}. {n.capitalize()}" for i, n in enumerate(names, 1)],
+        "",
+        "## Comparación de estrategias",
+        "",
+        "Misma semilla para todas, 1000 muestras por estrategia. La novedad se mide contra todo el dataset (train+val).",
+        "",
+        "| Estrategia | Temperatura | top-k | top-p | Copias del dataset | Repetidos | Longitud media | < 3 caracteres |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for s in strategies:
+        m = s["metrics"]
+        lines.append(
+            f"| {s['name']} | {s['temperature']} | {s['top_k'] or '-'} | {s['top_p'] or '-'} | {m['copy_rate']:.1%} | "
+            f"{m['repeat_rate']:.1%} | {m['mean_length']:.2f} | {m['short_rate']:.1%} |"
+        )
+    lines += ["", "## Análisis", "", analysis.strip(), ""]
+    (out_dir / "generated_names.md").write_text("\n".join(lines), encoding="utf-8")
