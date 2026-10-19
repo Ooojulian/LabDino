@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from labdino.identity import (ALL_KEYS, KEYS, SCHEMA, VISUAL_PROMPT_KEY, build_prompts, count_words, find_real_names,
-                              generate_identity, validate_identity)
+                              generate_clean_identity, generate_identity, location_warnings, validate_identity)
 from labdino.ollama_client import OllamaClient, OllamaError
 
 
@@ -31,6 +31,10 @@ def test_prompts_contain_name_suffixes_and_rules():
     assert "no lo corrijas" in user and "sufijo relevante para este nombre es -odon" in user
     assert "-saurus, -raptor, -venator son solo contexto" in user
     assert "FÍSICO" in user and "«dinosaurio»" in user
+    # rasgo único; apariencia no lo menciona; sin nombre propio en resumen/inglés; estilo natural
+    assert "UN único rasgo físico distintivo" in user and "NO menciones el rasgo distintivo" in user
+    assert "SIN el nombre propio" in user and "«a dinosaur»" in user
+    assert "«se detecta que»" in user and "Aparece solo en" in user
 
 
 def test_relevant_suffix_depends_on_name():
@@ -45,7 +49,8 @@ def test_count_words():
 
 def test_valid_identity_passes():
     ident, report = validate_identity(json.dumps(make_identity()))  # 6 * 28 = 168 palabras (visual_prompt_en no cuenta)
-    assert ident is not None and report["palabras"] == 168 and report["longitud_ok"] and not report["advertencias"]
+    assert ident is not None and report["palabras"] == 168 and report["longitud_ok"]
+    assert [w for w in report["advertencias"] if "ubicación" not in w] == []  # solo la de ubicación (el relleno no la tiene)
 
 
 @pytest.mark.parametrize("per_field, warns", [(22, True), (26, False), (33, False), (36, True)])
@@ -139,3 +144,107 @@ def test_generate_identity_sends_think_true_by_default(monkeypatch):
     monkeypatch.setenv("OLLAMA_IDENTITY_THINK", "0")
     generate_identity(client, "doractodon")
     assert seen == [True, False]
+
+
+def located(**overrides) -> dict:
+    filler = " ".join(["palabra"] * 40)  # para que la longitud total sea válida (120-230)
+    base = make_identity(
+        habitat=filler, alimentacion=filler, comportamiento=filler,
+        apariencia="Posee una cresta ósea en la parte superior del hocico.",
+        caracteristica_distintiva="Una cresta ósea en la parte superior del hocico.",
+        resumen_visual="Un dinosaurio verde con una cresta ósea en la parte superior del hocico.",
+    )
+    base[VISUAL_PROMPT_KEY] = "A green dinosaur with a bony crest on the top of the snout"
+    base.update(overrides)
+    return base
+
+
+def test_consistent_location_has_no_warning():
+    assert location_warnings(located()) == []
+
+
+def test_location_contradiction_between_fields_is_warned():
+    # el caso anterior: nuca en la característica y «dorsal» en el resumen y el prompt en inglés
+    ident = located(
+        caracteristica_distintiva="Placa ósea que se extiende a lo largo de la nuca.",
+        resumen_visual="Un dinosaurio con una placa ósea dorsal gruesa.",
+    )
+    ident[VISUAL_PROMPT_KEY] = "A dinosaur with a heavy dorsal bone plate"
+    warnings = location_warnings(ident)
+    assert any(w.startswith("resumen_visual") and "dorso" in w for w in warnings)
+    assert any(w.startswith(VISUAL_PROMPT_KEY) for w in warnings)
+
+
+def test_apariencia_is_not_checked_for_location():
+    ident = located(apariencia="Cuerpo robusto, cola larga, cabeza pequeña y espalda arqueada.")
+    assert location_warnings(ident) == []
+
+
+def test_proper_name_in_resumen_or_visual_prompt_is_warned():
+    ident = located(resumen_visual="El dinosaurio Doractodon tiene una cresta ósea en la parte superior del hocico.")
+    ident[VISUAL_PROMPT_KEY] = "Doractodon, a dinosaur with a bony crest on the top of the snout"
+    _, report = validate_identity(json.dumps(ident), name="doractodon")
+    warns = [w for w in report["advertencias"] if "nombre propio" in w]
+    assert len(warns) == 2 and any(VISUAL_PROMPT_KEY in w for w in warns)
+    _, clean = validate_identity(json.dumps(located()), name="doractodon")
+    assert not any("nombre propio" in w for w in clean["advertencias"])
+
+
+def test_trait_with_several_locations_is_warned():
+    ident = located(caracteristica_distintiva="Placa ósea en el cráneo que baja por la nuca y la espalda.")
+    assert any("varias ubicaciones" in w for w in location_warnings(ident))
+
+
+def test_missing_location_in_trait_is_warned():
+    assert location_warnings(located(caracteristica_distintiva="Un color azul intenso."))[0].startswith(
+        "caracteristica_distintiva no indica"
+    )
+
+
+def test_location_warning_does_not_block_validation():
+    ident, report = validate_identity(json.dumps(make_identity()))
+    assert ident is not None  # sin ubicación reconocible solo hay advertencia
+    assert any("ubicación" in w for w in report["advertencias"])
+
+
+def clean_identity(**overrides) -> dict:
+    return located(**overrides)
+
+
+def seeded_client(by_seed: dict) -> tuple[OllamaClient, list]:
+    seeds = []
+
+    def handler(request):
+        seed = json.loads(request.content)["options"]["seed"]
+        seeds.append(seed)
+        return httpx.Response(200, json={"response": by_seed[seed]})
+
+    return OllamaClient("http://x", "m", transport=httpx.MockTransport(handler)), seeds
+
+
+def test_clean_identity_stops_at_first_clean_seed():
+    dirty = located(resumen_visual="Un dinosaurio con una placa dorsal.")  # ubicación distinta -> advertencia
+    client, seeds = seeded_client({42: json.dumps(dirty), 43: json.dumps(clean_identity()), 44: "no se llama"})
+    res = generate_clean_identity(client, "doractodon", think=True)
+    assert seeds == [42, 43] and res.seed == 43
+    assert [t["seed"] for t in res.trials] == [42, 43] and res.trials[0]["advertencias"] and not res.trials[1]["advertencias"]
+    assert "Seed 43" in res.choice_reason
+
+
+def test_clean_identity_falls_back_to_fewest_warnings():
+    two = located(resumen_visual="Un dinosaurio con una placa dorsal.")
+    one = located(caracteristica_distintiva="Un color azul intenso.")  # 1 advertencia de ubicación
+    client, seeds = seeded_client({42: json.dumps(two), 43: "basura", 44: json.dumps(one)})
+    res = generate_clean_identity(client, "doractodon", think=True)
+    assert seeds == [42, 43, 44]
+    assert [t["valida"] for t in res.trials] == [True, False, True]
+    assert res.seed == min(
+        (t for t in res.trials if t["valida"]), key=lambda t: len(t["advertencias"])
+    )["seed"]
+    assert "Ninguna semilla salió limpia" in res.choice_reason
+
+
+def test_clean_identity_raises_if_none_valid():
+    client, _ = seeded_client({42: "x", 43: "y", 44: "z"})
+    with pytest.raises(OllamaError, match="Ninguna semilla"):
+        generate_clean_identity(client, "doractodon", think=True)

@@ -14,8 +14,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from labdino.identity import (ALL_KEYS, identity_think, BASE_SEED, HARD_MAX, HARD_MIN, KEYS, MAX_ATTEMPTS, MAX_WORDS, MIN_WORDS,
-                              SCHEMA, TEMPERATURE, build_prompts, generate_identity)
+from labdino.identity import (ALL_KEYS, CLEAN_SEEDS, generate_clean_identity, identity_think, HARD_MAX, HARD_MIN, KEYS, MAX_WORDS, MIN_WORDS,
+                              SCHEMA, TEMPERATURE, build_prompts)
 from labdino.ollama_client import OllamaClient
 
 HERE = Path(__file__).parent
@@ -42,8 +42,8 @@ Prompt exacto (lo construye `labdino.identity.build_prompts`) que se enviará a 
 | Endpoint | `/api/generate` (sin streaming) |
 | `format` | esquema JSON (abajo): 7 claves fijas, sin claves extra |
 | temperature | {TEMPERATURE} |
-| seed | {BASE_SEED} (el intento n usa {BASE_SEED}+n-1) |
-| Máx. intentos | {MAX_ATTEMPTS}; el número de intentos usados se registra en `identity.json` |
+| seed | se prueban {', '.join(map(str, CLEAN_SEEDS))} en orden; se elige la primera ficha válida sin advertencias (si ninguna, la de menos advertencias). Se registran las semillas probadas y el motivo en `identity.json` |
+| Reintentos | un intento por semilla; el número de intentos y las semillas probadas se registran en `identity.json` |
 | Modo thinking | `think=True` por defecto para la identidad (configurable con `OLLAMA_IDENTITY_THINK`); el chat usa `think=False` (`OLLAMA_CHAT_THINK`). El razonamiento llega aparte y no se mezcla con la respuesta |
 | Longitud pedida en el prompt | {MIN_WORDS}-{MAX_WORDS} palabras (suma de las 6 claves de la ficha; `visual_prompt_en` no cuenta) |
 | Longitud validada | reintento fuera de {HARD_MIN}-{HARD_MAX}; advertencia entre {HARD_MIN}-{MIN_WORDS} y {MAX_WORDS}-{HARD_MAX} |
@@ -78,6 +78,8 @@ Prompt exacto (lo construye `labdino.identity.build_prompts`) que se enviará a 
 - Longitud entre {HARD_MIN}-{MIN_WORDS} o {MAX_WORDS}-{HARD_MAX} palabras.
 - Aparece en la salida el nombre de una especie real (los {len(real_names())} nombres del dataset más unos célebres como T-Rex o Velociraptor).
 - `visual_prompt_en` no menciona «dinosaur» o es demasiado largo.
+- La ubicación anatómica del rasgo distintivo (cráneo, nuca, cuello, dorso, cola, hocico) no coincide entre `caracteristica_distintiva`, `resumen_visual` y `visual_prompt_en` (`apariencia` no menciona el rasgo y no se revisa).
+- `resumen_visual` o `visual_prompt_en` contienen el nombre propio.
 - El resumen visual no comparte vocabulario con la característica distintiva.
 """
     (HERE / "identity_prompt.md").write_text(text, encoding="utf-8")
@@ -87,7 +89,7 @@ def run(name: str, think: bool | None, out_dir: Path) -> None:
     client = OllamaClient.from_env()
     health = client.health()
     start = time.perf_counter()
-    result = generate_identity(client, name, think=think, real_names=real_names())
+    result = generate_clean_identity(client, name, think=think, real_names=real_names())
     elapsed = time.perf_counter() - start
     system, user = build_prompts(name)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -100,8 +102,12 @@ def run(name: str, think: bool | None, out_dir: Path) -> None:
         "model": health["model"],
         "ollama_version": health["ollama_version"],
         "parameters": {"temperature": TEMPERATURE, "seed": result.seed, "think": think, "format": "json_schema",
-                       "max_attempts": MAX_ATTEMPTS},
+                       "seeds_to_try": list(CLEAN_SEEDS)},
         "n_attempts": result.n_attempts,
+        "seeds_tried": [t["seed"] for t in result.trials],
+        "seed_trials": result.trials,
+        "chosen_seed": result.seed,
+        "choice_reason": result.choice_reason,
         "elapsed_seconds": round(elapsed, 1),
         "prompt": {"system": system, "user": user},
         "checks": result.report,
@@ -116,6 +122,10 @@ def run(name: str, think: bool | None, out_dir: Path) -> None:
           f"{result.n_attempts} intento(s), {elapsed:.1f} s.*", ""]
     for key in ALL_KEYS:
         md += [f"## {key.replace('_', ' ').capitalize()}", "", result.identity[key], ""]
+    md += ["## Selección de la semilla", "", result.choice_reason, "",
+           *(f"- Seed {t['seed']}: " + ("válida, " + (f"{len(t['advertencias'])} advertencia(s): {t['advertencias']}"
+              if t["advertencias"] else "sin advertencias") if t["valida"] else f"no válida ({t['errores']})")
+             for t in result.trials), ""]
     md += ["## Chequeos", "", f"- Palabras de la ficha: {result.report['palabras']} (pedido {MIN_WORDS}-{MAX_WORDS})",
            "- Claves, campos no vacíos y longitud: OK",
            *(f"- Advertencia: {w}" for w in result.report["advertencias"]), ""]

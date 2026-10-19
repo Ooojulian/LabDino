@@ -9,8 +9,8 @@ Prompt exacto (lo construye `labdino.identity.build_prompts`) que se enviará a 
 | Endpoint | `/api/generate` (sin streaming) |
 | `format` | esquema JSON (abajo): 7 claves fijas, sin claves extra |
 | temperature | 0.7 |
-| seed | 42 (el intento n usa 42+n-1) |
-| Máx. intentos | 4; el número de intentos usados se registra en `identity.json` |
+| seed | se prueban 42, 43, 44 en orden; se elige la primera ficha válida sin advertencias (si ninguna, la de menos advertencias). Se registran las semillas probadas y el motivo en `identity.json` |
+| Reintentos | un intento por semilla; el número de intentos y las semillas probadas se registran en `identity.json` |
 | Modo thinking | `think=True` por defecto para la identidad (configurable con `OLLAMA_IDENTITY_THINK`); el chat usa `think=False` (`OLLAMA_CHAT_THINK`). El razonamiento llega aparte y no se mezcla con la respuesta |
 | Longitud pedida en el prompt | 150-200 palabras (suma de las 6 claves de la ficha; `visual_prompt_en` no cuenta) |
 | Longitud validada | reintento fuera de 120-230; advertencia entre 120-150 y 200-230 |
@@ -41,14 +41,21 @@ Contexto sobre sufijos de nombres reales (solo orientación, no plantilla):
 El sufijo relevante para este nombre es -odon («diente»); -saurus, -raptor, -venator son solo contexto.
 No repitas estas pistas en la ficha ni conviertas el nombre en un chiste.
 
-Antes de escribir, define mentalmente un perfil coherente: hábitat, tamaño, locomoción, dentición, dieta, comportamiento y UN rasgo físico distintivo visible. Después escribe la ficha con estas claves, todas en texto (cadena de caracteres), con esta orientación de extensión:
-- "apariencia": tamaño, postura, cuerpo, piel o plumas y colores (unas 40 palabras).
+Antes de escribir, define mentalmente un perfil coherente: hábitat, tamaño, locomoción, dentición, dieta, comportamiento y UN único rasgo físico distintivo visible, con su ubicación anatómica exacta (una sola parte del cuerpo, por ejemplo «en la parte superior del hocico» o «a lo largo del lomo»). Después escribe la ficha con estas claves, todas en texto (cadena de caracteres), con esta orientación de extensión:
+- "apariencia": el cuerpo en general (tamaño, postura, proporciones, piel o plumas y colores generales). NO menciones el rasgo distintivo (unas 40 palabras).
 - "habitat": clima, terreno y vegetación donde vive (unas 25 palabras).
 - "alimentacion": qué come y cómo lo obtiene, acorde con su dentición y su cuerpo (unas 25 palabras).
 - "comportamiento": hábitos sociales, actividad y relación con otros animales (unas 30 palabras).
-- "caracteristica_distintiva": un único rasgo FÍSICO y visible e inconfundible (por ejemplo la forma, textura o color de una parte del cuerpo), no un hábito ni una conducta (unas 25 palabras).
-- "resumen_visual": una sola oración que empiece describiendo al dinosaurio y use la palabra «dinosaurio»; solo lo que se vería en una imagen, con términos concretos (formas, colores, texturas, tamaño aproximado, postura, entorno), incluyendo la característica distintiva y sin compararlo con especies reales (unas 30 palabras).
-- "visual_prompt_en": una frase corta en inglés (máximo 35 palabras), pensada para un generador de imágenes, que resuma el aspecto del dinosaurio con términos concretos; no cuenta para el límite de palabras.
+- "caracteristica_distintiva": el único rasgo FÍSICO y visible e inconfundible (por ejemplo la forma, textura o color de una parte del cuerpo), no un hábito ni una conducta, con su ubicación anatómica (unas 25 palabras).
+- "resumen_visual": una sola oración que describe al dinosaurio y usa la palabra «dinosaurio» como sujeto, SIN el nombre propio; solo lo que se vería en una imagen, con términos concretos (formas, colores, texturas, tamaño aproximado, postura, entorno), incluyendo el rasgo distintivo y sin compararlo con especies reales (unas 30 palabras).
+- "visual_prompt_en": una frase corta en inglés (máximo 35 palabras) para un generador de imágenes, con «a dinosaur» como sujeto y SIN el nombre propio, que resuma el aspecto con términos concretos e incluya el rasgo distintivo; no cuenta para el límite de palabras.
+
+El rasgo distintivo (único, con la misma ubicación y el mismo término):
+- Aparece solo en "caracteristica_distintiva", "resumen_visual" y "visual_prompt_en". "apariencia" no lo menciona.
+- Usa la misma ubicación anatómica y la misma palabra para el rasgo en esos tres campos; en "visual_prompt_en", su traducción literal al inglés.
+- No lo sitúes en otra parte del cuerpo ni lo describas en dos lugares distintos, y no añadas un segundo rasgo distintivo (por ejemplo, no mezcles cráneo, nuca, cuello, espalda y lomo para el mismo rasgo).
+
+Estilo: redacta de forma natural y directa, con sujeto claro; evita las construcciones impersonales o de observación como «se detecta que», «se observa que» o «se aprecia que».
 
 Reglas:
 - La ficha (suma de las seis primeras claves, sin "visual_prompt_en") debe tener entre 150 y 200 palabras.
@@ -109,4 +116,6 @@ Reglas:
 - Longitud entre 120-150 o 200-230 palabras.
 - Aparece en la salida el nombre de una especie real (los 1524 nombres del dataset más unos célebres como T-Rex o Velociraptor).
 - `visual_prompt_en` no menciona «dinosaur» o es demasiado largo.
+- La ubicación anatómica del rasgo distintivo (cráneo, nuca, cuello, dorso, cola, hocico) no coincide entre `caracteristica_distintiva`, `resumen_visual` y `visual_prompt_en` (`apariencia` no menciona el rasgo y no se revisa).
+- `resumen_visual` o `visual_prompt_en` contienen el nombre propio.
 - El resumen visual no comparte vocabulario con la característica distintiva.
