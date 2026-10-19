@@ -140,3 +140,30 @@ def test_from_env_reads_settings(monkeypatch):
     assert c.base_url == BASE and c.model == "m"
     assert c._http.headers[NGROK_HEADER] == "true"
     assert c._http.timeout.read == 42 and c._http.timeout.connect == 5
+
+
+def test_format_think_and_num_predict_are_forwarded():
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"response": "{}"})
+
+    make_client(handler).generate("p", format="json", think=False, num_predict=50)
+    assert seen["body"]["format"] == "json" and seen["body"]["think"] is False
+    assert seen["body"]["options"]["num_predict"] == 50
+
+
+def test_thinking_is_not_mixed_into_the_answer():
+    def handler(request):
+        return httpx.Response(200, json={"response": "final", "thinking": "razonamiento largo..."})
+
+    assert make_client(handler).generate("p") == "final"
+
+
+def test_empty_answer_with_thinking_explains_token_budget():
+    def handler(request):
+        return httpx.Response(200, json={"response": "", "thinking": "...", "done_reason": "length"})
+
+    with pytest.raises(OllamaError, match="num_predict"):
+        make_client(handler).generate("p", num_predict=5)

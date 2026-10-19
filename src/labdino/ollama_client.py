@@ -130,7 +130,18 @@ class OllamaClient:
         hint = " Revisa OLLAMA_BASE_URL." if resp.status_code in (401, 403, 404, 502, 503) else ""
         raise OllamaError(f"Ollama respondió HTTP {resp.status_code}: {detail or 'sin detalle'}.{hint}")
 
-    def _options(self, temperature: float | None, seed: int | None) -> dict:
+    def _final_text(self, text: str, data: dict) -> str:
+        """Solo el contenido final; el razonamiento (`thinking`) llega aparte y nunca se mezcla."""
+        if not text.strip():
+            hint = (
+                " El razonamiento parece haber agotado el límite de tokens: sube num_predict o desactiva think."
+                if data.get("thinking") or data.get("message", {}).get("thinking")
+                else ""
+            )
+            raise OllamaError(f"Ollama devolvió una respuesta vacía (done_reason={data.get('done_reason')!r}).{hint}")
+        return text
+
+    def _options(self, temperature: float | None, seed: int | None, num_predict: int | None = None) -> dict:
         temperature = self.temperature if temperature is None else temperature
         seed = self.seed if seed is None else seed
         options = {}
@@ -138,6 +149,8 @@ class OllamaClient:
             options["temperature"] = temperature
         if seed is not None:
             options["seed"] = seed
+        if num_predict is not None:
+            options["num_predict"] = num_predict
         return options
 
     # --- API ----------------------------------------------------------------------------------------------
@@ -165,12 +178,32 @@ class OllamaClient:
         }
 
     def generate(
-        self, prompt: str, system: str | None = None, *, temperature: float | None = None, seed: int | None = None
+        self,
+        prompt: str,
+        system: str | None = None,
+        *,
+        temperature: float | None = None,
+        seed: int | None = None,
+        format: str | dict | None = None,
+        think: bool | None = None,
+        num_predict: int | None = None,
     ) -> str:
-        payload = {"model": self.model, "prompt": prompt, "stream": False, "options": self._options(temperature, seed)}
+        """Texto final. `format` ("json" o un esquema JSON) fuerza salida estructurada; `think` activa/desactiva
+        el razonamiento del modelo (None = comportamiento por defecto de Ollama)."""
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "options": self._options(temperature, seed, num_predict),
+        }
         if system:
             payload["system"] = system
-        return self._request("POST", "/api/generate", payload)["response"]
+        if format is not None:
+            payload["format"] = format
+        if think is not None:
+            payload["think"] = think
+        data = self._request("POST", "/api/generate", payload)
+        return self._final_text(data["response"], data)
 
     def chat(
         self,
@@ -179,8 +212,21 @@ class OllamaClient:
         *,
         temperature: float | None = None,
         seed: int | None = None,
+        format: str | dict | None = None,
+        think: bool | None = None,
+        num_predict: int | None = None,
     ) -> str:
         """messages: [{"role": "user"|"assistant", "content": ...}]; `system` se antepone como mensaje de sistema."""
         full = ([{"role": "system", "content": system}] if system else []) + list(messages)
-        payload = {"model": self.model, "messages": full, "stream": False, "options": self._options(temperature, seed)}
-        return self._request("POST", "/api/chat", payload)["message"]["content"]
+        payload = {
+            "model": self.model,
+            "messages": full,
+            "stream": False,
+            "options": self._options(temperature, seed, num_predict),
+        }
+        if format is not None:
+            payload["format"] = format
+        if think is not None:
+            payload["think"] = think
+        data = self._request("POST", "/api/chat", payload)
+        return self._final_text(data["message"]["content"], data)
