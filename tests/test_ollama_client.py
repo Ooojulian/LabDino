@@ -167,3 +167,30 @@ def test_empty_answer_with_thinking_explains_token_budget():
 
     with pytest.raises(OllamaError, match="num_predict"):
         make_client(handler).generate("p", num_predict=5)
+
+
+def test_chat_defaults_to_think_false_and_is_configurable(monkeypatch):
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content).get("think"))
+        return httpx.Response(200, json={"message": {"content": "hola"}})
+
+    c = make_client(handler)
+    c.chat([{"role": "user", "content": "hi"}])
+    c.chat([{"role": "user", "content": "hi"}], think=True)
+    assert seen == [False, True]
+
+    monkeypatch.setenv("OLLAMA_BASE_URL", BASE)
+    monkeypatch.setenv("OLLAMA_MODEL", "m")
+    assert OllamaClient.from_env().chat_think is False
+    monkeypatch.setenv("OLLAMA_CHAT_THINK", "true")
+    assert OllamaClient.from_env().chat_think is True
+
+
+def test_env_bool_rejects_garbage(monkeypatch):
+    from labdino.ollama_client import env_bool
+
+    monkeypatch.setenv("X_FLAG", "quizás")
+    with pytest.raises(OllamaConfigError, match="X_FLAG"):
+        env_bool("X_FLAG", True)

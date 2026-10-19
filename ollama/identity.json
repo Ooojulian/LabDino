@@ -1,0 +1,52 @@
+{
+  "name": "doractodon",
+  "identity": {
+    "apariencia": "Doractodon posee un cuerpo robusto y bajo, con una postura cuadrúpeda pesada. Su piel es gruesa y escamosa de un color ocre terroso, proporcionando protección contra el clima árido. Presenta extremidades cortas y fuertes, adaptadas para el movimiento lento y sostenido.",
+    "habitat": "Habita en estepas áridas de gran altitud, caracterizadas por suelos rocosos y vegetación xerófila esparcida. El clima es seco y las temperaturas fluctúan drásticamente entre el día y la noche.",
+    "alimentacion": "Consume materia vegetal fibrosa y leñosa. Su dentición se compone de molares grandes y planos, diseñados para triturar y procesar la vegetación dura con gran eficiencia.",
+    "comportamiento": "Es un animal predominantemente solitario, realizando forrajeo en periodos largos. Muestra cautela ante depredadores y se agrupa brevemente solo para la reproducción, manteniendo una interacción mínima con otros individuos.",
+    "caracteristica_distintiva": "El cráneo presenta una placa ósea dorsal única y muy gruesa que se extiende a lo largo de la nuca, aumentando significativamente la resistencia estructural.",
+    "resumen_visual": "El dinosaurio Doractodon es un animal robusto de tamaño medio, de color ocre terroso, que camina lentamente sobre terrenos rocosos, destacando por su placa ósea dorsal gruesa y distintiva.",
+    "visual_prompt_en": "A robust, medium-sized dinosaur with thick, ocher skin and a prominent, heavy dorsal bone plate, foraging in arid, rocky scrubland."
+  },
+  "model": "gemma4:e2b",
+  "ollama_version": "0.40.6",
+  "parameters": {
+    "temperature": 0.7,
+    "seed": 42,
+    "think": true,
+    "format": "json_schema",
+    "max_attempts": 4
+  },
+  "n_attempts": 1,
+  "elapsed_seconds": 18.3,
+  "prompt": {
+    "system": "Eres un paleontólogo y escritor de fichas de especies ficticias. Escribes en español, en tercera persona y en presente, con un tono científico claro. Respondes SIEMPRE y únicamente con un objeto JSON válido, sin texto adicional, sin markdown y sin comentarios.\n\nPrincipios de tu trabajo:\n- Coherencia: todos los rasgos de la especie encajan entre sí. El hábitat explica el cuerpo, el cuerpo explica la dieta y la dieta explica el comportamiento.\n- La especie es inventada: no copies ni parafrasees ninguna especie real, no menciones ni compares con especies reales, y no afirmes hallazgos fósiles ni lugares de excavación reales.\n- El nombre de la especie es un nombre propio inventado: lo usas tal cual, sin corregirlo ni sustituirlo.",
+    "user": "Crea la ficha de una especie de dinosaurio ficticia llamada «Doractodon».\n\n«Doractodon» es un nombre propio inventado: no lo corrijas, no lo sustituyas por otro ni lo reinterpretes como una especie real.\n\nContexto sobre sufijos de nombres reales (solo orientación, no plantilla):\n- -saurus: «lagarto»\n- -raptor: «ladrón o rapaz»\n- -odon: «diente»\n- -venator: «cazador»\nEl sufijo relevante para este nombre es -odon («diente»); -saurus, -raptor, -venator son solo contexto.\nNo repitas estas pistas en la ficha ni conviertas el nombre en un chiste.\n\nAntes de escribir, define mentalmente un perfil coherente: hábitat, tamaño, locomoción, dentición, dieta, comportamiento y UN rasgo físico distintivo visible. Después escribe la ficha con estas claves, todas en texto (cadena de caracteres), con esta orientación de extensión:\n- \"apariencia\": tamaño, postura, cuerpo, piel o plumas y colores (unas 40 palabras).\n- \"habitat\": clima, terreno y vegetación donde vive (unas 25 palabras).\n- \"alimentacion\": qué come y cómo lo obtiene, acorde con su dentición y su cuerpo (unas 25 palabras).\n- \"comportamiento\": hábitos sociales, actividad y relación con otros animales (unas 30 palabras).\n- \"caracteristica_distintiva\": un único rasgo FÍSICO y visible e inconfundible (por ejemplo la forma, textura o color de una parte del cuerpo), no un hábito ni una conducta (unas 25 palabras).\n- \"resumen_visual\": una sola oración que empiece describiendo al dinosaurio y use la palabra «dinosaurio»; solo lo que se vería en una imagen, con términos concretos (formas, colores, texturas, tamaño aproximado, postura, entorno), incluyendo la característica distintiva y sin compararlo con especies reales (unas 30 palabras).\n- \"visual_prompt_en\": una frase corta en inglés (máximo 35 palabras), pensada para un generador de imágenes, que resuma el aspecto del dinosaurio con términos concretos; no cuenta para el límite de palabras.\n\nReglas:\n- La ficha (suma de las seis primeras claves, sin \"visual_prompt_en\") debe tener entre 150 y 200 palabras.\n- Tercera persona y presente; sin listas, sin saltos de línea dentro de los campos.\n- Ningún campo puede quedar vacío y no añadas claves distintas a las siete indicadas."
+  },
+  "checks": {
+    "json_valido": true,
+    "claves_ok": true,
+    "campos_no_vacios": true,
+    "palabras": 180,
+    "longitud_ok": true,
+    "errores": [],
+    "advertencias": []
+  },
+  "attempts": [
+    {
+      "intento": 1,
+      "seed": 42,
+      "chequeos": {
+        "json_valido": true,
+        "claves_ok": true,
+        "campos_no_vacios": true,
+        "palabras": 180,
+        "longitud_ok": true,
+        "errores": [],
+        "advertencias": []
+      }
+    }
+  ],
+  "generated_utc": "2026-10-19 16:13:25"
+}

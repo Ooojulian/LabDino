@@ -6,6 +6,8 @@ La configuración sale del entorno; el repo no trae valores por defecto:
     OLLAMA_NGROK_SKIP_WARNING    opcional: "1"/"true" añade la cabecera ngrok-skip-browser-warning
     OLLAMA_CONNECT_TIMEOUT       opcional, segundos (por defecto 5)
     OLLAMA_READ_TIMEOUT          opcional, segundos (por defecto 300)
+    OLLAMA_IDENTITY_THINK        opcional: razonamiento al generar la identidad (por defecto activado)
+    OLLAMA_CHAT_THINK            opcional: razonamiento en el chat (por defecto desactivado)
 """
 
 import os
@@ -42,8 +44,16 @@ def _require_env(name: str) -> str:
     return value
 
 
-def _env_flag(name: str) -> bool:
-    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+def env_bool(name: str, default: bool) -> bool:
+    """Lee un booleano del entorno ("1/true/yes/on" o "0/false/no/off"); `default` si no está definido."""
+    value = os.environ.get(name, "").strip().lower()
+    if not value:
+        return default
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise OllamaConfigError(f"{name} debe ser true o false, no {value!r}.")
 
 
 class OllamaClient:
@@ -57,12 +67,14 @@ class OllamaClient:
         temperature: float | None = None,
         seed: int | None = None,
         ngrok_skip_warning: bool = False,
+        chat_think: bool = False,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.temperature = temperature
         self.seed = seed
+        self.chat_think = chat_think  # el chat responde rápido: sin razonamiento salvo que se pida lo contrario
         headers = {NGROK_HEADER: "true"} if ngrok_skip_warning else {}
         self._http = httpx.Client(
             base_url=self.base_url,
@@ -74,7 +86,8 @@ class OllamaClient:
     @classmethod
     def from_env(cls, **kwargs) -> "OllamaClient":
         """Crea el cliente con OLLAMA_BASE_URL y OLLAMA_MODEL (obligatorias)."""
-        kwargs.setdefault("ngrok_skip_warning", _env_flag("OLLAMA_NGROK_SKIP_WARNING"))
+        kwargs.setdefault("chat_think", env_bool("OLLAMA_CHAT_THINK", False))
+        kwargs.setdefault("ngrok_skip_warning", env_bool("OLLAMA_NGROK_SKIP_WARNING", False))
         for env, key in (("OLLAMA_CONNECT_TIMEOUT", "connect_timeout"), ("OLLAMA_READ_TIMEOUT", "read_timeout")):
             if os.environ.get(env, "").strip() and key not in kwargs:
                 try:
@@ -226,7 +239,6 @@ class OllamaClient:
         }
         if format is not None:
             payload["format"] = format
-        if think is not None:
-            payload["think"] = think
+        payload["think"] = self.chat_think if think is None else think
         data = self._request("POST", "/api/chat", payload)
         return self._final_text(data["message"]["content"], data)
