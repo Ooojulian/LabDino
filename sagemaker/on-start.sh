@@ -23,15 +23,31 @@ if docker ps -a --format '{{.Names}}' | grep -q '^ollama$'; then
   docker start ollama
 else
   docker run -d --name ollama --restart unless-stopped \
-    -p 11434:11434 -v "$OLLAMA_DIR":/root/.ollama ollama/ollama:latest
+    -p 11434:11434 -e OLLAMA_KEEP_ALIVE=24h -v "$OLLAMA_DIR":/root/.ollama ollama/ollama:latest
 fi
 
 # 3. Modelo (solo la primera vez tarda; después ya está en $OLLAMA_DIR)
 MODEL=${OLLAMA_MODEL:-gemma4:e2b}
 for i in $(seq 1 30); do curl -sf localhost:11434/api/version && break; sleep 2; done
-docker exec ollama ollama pull "$MODEL"
+# en segundo plano: la lifecycle tiene límite de 5 min y la primera descarga puede tardar más
+nohup docker exec ollama ollama pull "$MODEL" > $PERSIST/pull.log 2>&1 &
 
-# 4. Túnel ngrok opcional: si existe $PERSIST/.ngrok_token (NO va en git) se expone el puerto 11434
+# 4. Servidor de imágenes (amused-512 en CPU) en el puerto 8001
+REPO=$PERSIST/LabDino
+[ -d "$REPO" ] || sudo -u ec2-user git clone https://github.com/Ooojulian/LabDino "$REPO"
+sudo -u ec2-user git -C "$REPO" pull --ff-only || true
+# contenedor python:3.11 con caché de pip/HF persistentes; la primera vez instala torch (varios minutos)
+if docker ps -a --format '{{.Names}}' | grep -q '^images$'; then
+  docker start images
+else
+  docker run -d --name images --restart unless-stopped -p 8001:8001 \
+    -v "$REPO":/repo -v $PERSIST/hf_cache:/root/.cache -e HF_HOME=/root/.cache/hf python:3.11-slim \
+    bash -c "pip install -q torch --index-url https://download.pytorch.org/whl/cpu && \
+             pip install -q diffusers transformers accelerate safetensors fastapi uvicorn && \
+             python /repo/image_generator/server.py"
+fi
+
+# 5. Túnel ngrok opcional: si existe $PERSIST/.ngrok_token (NO va en git) se expone el puerto 11434
 if [ -f "$PERSIST/.ngrok_token" ]; then
   if [ ! -x "$PERSIST/bin/ngrok" ]; then
     mkdir -p "$PERSIST/bin"
