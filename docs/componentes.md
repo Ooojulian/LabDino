@@ -7,27 +7,29 @@ Requisito de la [guía](guia_laboratorio.pdf) (sección 5): documentar la inform
 ```mermaid
 flowchart LR
     U[Navegador<br/>app/static/index.html] -->|HTTP :80| APP
-    subgraph EC2["AWS EC2 · contenedor Docker"]
+    subgraph EC2["AWS EC2 t3.medium · contenedor Docker"]
         APP[FastAPI<br/>app/server.py]
         NAME[Modelo de caracteres<br/>GRU, artefactos en memoria]
         APP --- NAME
     end
-    APP -->|HTTPS · /api/chat, /api/generate| N1[ngrok]
-    N1 --> OLL[Ollama gemma4:e2b<br/>SageMaker m5.xlarge · Docker :11434]
-    APP -->|HTTPS · POST /generate| N2[ngrok]
-    N2 --> IMG[Servidor de imágenes<br/>Colab GPU · amused-512 · :8001]
+    subgraph SM["SageMaker notebook ml.m5.xlarge · misma VPC"]
+        OLL[Ollama gemma4:e2b<br/>Docker :11434]
+        IMG[Servidor de imágenes<br/>amused-512 en CPU · Docker :8001]
+    end
+    APP -->|IP privada · /api/chat, /api/generate| OLL
+    APP -->|IP privada · POST /generate| IMG
 ```
 
 Flujo de *Nuevo Dinosaurio*: nombre (local, sin reentrenar) → identidad (Ollama) → imagen (Colab, una sola vez por dinosaurio) → chat (Ollama, con la ficha como contexto).
-Las URLs de ngrok son temporales y se configuran con `OLLAMA_BASE_URL` e `IMAGE_API_URL` (ver [README](../README.md#configuración)).
+En el despliegue final la EC2 alcanza ambos servidores por la VPC privada (security group compartido), sin ngrok; se configuran con `OLLAMA_BASE_URL` e `IMAGE_API_URL` (ver [README](../README.md#configuración)). Colab/ngrok (URLs temporales) quedan como alternativa para el servidor de imágenes con el mismo contrato.
 
 ## Resumen por componente
 
 | Componente | Dónde corre | Código | Recibe | Devuelve |
 |---|---|---|---|---|
 | Generador de nombres | Dentro del backend (CPU) | `src/labdino/artifacts.py`, `sampling.py` | Nada (semilla aleatoria) | Un nombre nuevo (`str`) que no está en el dataset |
-| Ollama | SageMaker, Docker, puerto 11434 (vía ngrok) | `sagemaker/`, cliente en `src/labdino/ollama_client.py` | JSON a `/api/generate` o `/api/chat` | JSON con el texto generado |
-| Servidor de imágenes | Colab (GPU), puerto 8001 (vía ngrok) | `image_generator/colab_image_server.ipynb` | `POST /generate` con JSON | PNG (bytes) |
+| Ollama | SageMaker, Docker, puerto 11434 (VPC privada) | `sagemaker/`, cliente en `src/labdino/ollama_client.py` | JSON a `/api/generate` o `/api/chat` | JSON con el texto generado |
+| Servidor de imágenes | SageMaker (CPU, Docker, puerto 8001, VPC privada); alternativa: Colab GPU vía ngrok | `image_generator/server.py`, `image_generator/colab_image_server.ipynb` | `POST /generate` con JSON | PNG (bytes) |
 | Backend de la app | EC2, contenedor, puerto 8000 (expuesto en 80) | `app/server.py` | Peticiones del navegador | JSON e imágenes |
 | Frontend | Navegador | `app/static/index.html` | Respuestas JSON del backend | Interfaz: ficha, retrato, chat, botón Nuevo Dinosaurio |
 
@@ -61,7 +63,9 @@ Chat (`/api/chat`; la ficha viaja como mensaje `system` en cada petición):
               {"role": "user", "content": "¿Qué comes?"}]}
 ```
 
-## Servidor de imágenes (Colab)
+## Servidor de imágenes (SageMaker; alternativa Colab)
+
+Mismo contrato en ambos entornos.
 
 | Endpoint | Recibe | Devuelve |
 |---|---|---|

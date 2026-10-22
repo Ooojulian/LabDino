@@ -13,7 +13,7 @@ flowchart LR
     B -->|descripción como contexto| D
 ```
 
-**Sitio web:** _pendiente_ · Documentación de cada componente (qué recibe y qué devuelve): [docs/componentes.md](docs/componentes.md)
+**Sitio web:** http://54.211.115.130 (AWS Academy: solo responde mientras el Learner Lab está activo) · Documentación de cada componente (qué recibe y qué devuelve): [docs/componentes.md](docs/componentes.md)
 
 ## Ejemplo
 
@@ -170,7 +170,11 @@ Orden: SageMaker → Colab → EC2. Las URLs de ngrok cambian cada vez que se re
 5. **Variables:** en la instancia, escribir `/opt/labdino.env` con `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_NGROK_SKIP_WARNING=true`, `IMAGE_API_URL` e `IMAGE_NGROK_SKIP_WARNING=true`, y reiniciar con `docker restart labdino`.
 6. **Probar:** abrir la IP pública de la EC2 y recorrer la lista de verificación de abajo.
 
-Estado: el código y los pasos están documentados; el despliegue en AWS está pendiente (**Sitio web: _pendiente_**).
+Estado: desplegado en AWS (**Sitio web:** http://54.211.115.130, AWS Academy: solo responde mientras el Learner Lab está activo).
+
+**Arquitectura realmente usada:** el notebook SageMaker `labdino-ollama` (ml.m5.xlarge) en la VPC por defecto corre Ollama (gemma4:e2b, :11434) y el servidor de imágenes amused-512 en CPU (`image_generator/server.py` en Docker, :8001) mediante `sagemaker/on-start.sh`. La EC2 t3.medium `labdino-app` corre la app (:80) y los alcanza por IP privada con un security group compartido, sin ngrok. Colab/ngrok quedan como alternativa.
+
+Para la sustentación: iniciar el Learner Lab, encender el notebook (Start) y la EC2. Si la IP pública de la EC2 cambia, actualizar el link; si cambia la IP privada del notebook, editar `/opt/labdino.env` y `docker restart labdino`.
 El `Dockerfile` copia `image_generator/outputs/`, que debe contener `doractodon.png` antes de construir.
 
 ## Configuración
@@ -225,15 +229,15 @@ Los checkpoints de A y B están en `evidence/checkpoints/` como evidencia.
 - [x] Ollama en SageMaker (`m5.xlarge`, Docker con `data-root` persistente y script `on-start`): implementado en código
 - [x] Imagen con un modelo text-to-image a partir de la ficha: implementado en código
 - [x] Aplicación web con el chat y el botón **Nuevo Dinosaurio**: implementada en código
-- [ ] Despliegue en AWS: pasos documentados, pendiente publicar y enlazar el sitio (**Sitio web: _pendiente_**)
+- [x] Despliegue en AWS: sitio publicado en http://54.211.115.130
 
 ## Verificación antes de la entrega
 
-- [ ] Los diez nombres generados no son copias directas del conjunto de entrenamiento
-- [ ] El dinosaurio seleccionado tiene una identidad coherente
-- [ ] La imagen corresponde con los rasgos descritos
-- [ ] El chat conserva la identidad durante la conversación
-- [ ] La imagen aparece en el chat al presentar o describir al dinosaurio
-- [ ] El botón Nuevo Dinosaurio inicia una nueva generación sin reentrenar el modelo
-- [ ] El sitio web es accesible
-- [ ] El repositorio contiene las instrucciones necesarias y no publica información sensible
+- [x] Los diez nombres generados no son copias directas del conjunto de entrenamiento
+- [x] El dinosaurio seleccionado tiene una identidad coherente
+- [ ] La imagen corresponde con los rasgos descritos (aproximada: amused-512 no siempre dibuja el rasgo distintivo)
+- [x] El chat conserva la identidad durante la conversación
+- [x] La imagen aparece en el chat al presentar o describir al dinosaurio
+- [x] El botón Nuevo Dinosaurio inicia una nueva generación sin reentrenar el modelo
+- [x] El sitio web es accesible
+- [x] El repositorio contiene las instrucciones necesarias y no publica información sensible
