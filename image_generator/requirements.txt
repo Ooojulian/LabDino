@@ -1,0 +1,9 @@
+torch
+diffusers>=0.30
+transformers
+accelerate
+safetensors
+fastapi
+uvicorn
+pyngrok
+nest_asyncio

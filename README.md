@@ -13,9 +13,7 @@ flowchart LR
     B -->|descripción como contexto| D
 ```
 
-> **Alcance actual.** Están implementados y probados el **generador de nombres** y la **identidad con Ollama** (local).
-> La generación de imagen, el backend/frontend con chat, el despliegue en AWS y la configuración de SageMaker son las
-> siguientes etapas ([ver hoja de ruta](#hoja-de-ruta)).
+**Sitio web:** _pendiente_ · Documentación de cada componente (qué recibe y qué devuelve): [docs/componentes.md](docs/componentes.md)
 
 ## Ejemplo
 
@@ -36,6 +34,8 @@ con el modelo descargado (`ollama pull gemma4:e2b`).
 uv sync                                  # instala dependencias (PyTorch, httpx, pytest, jupyterlab…)
 uv run pytest                            # 74 tests; uno más, contra Ollama real, se omite sin variables de entorno
 ```
+
+Para la app completa ver [Ejecutar la app localmente](#ejecutar-la-app-localmente).
 
 **Generar un nombre sin reentrenar** (usa los artefactos versionados):
 
@@ -59,9 +59,14 @@ uv run python ollama/generate_identity.py
 
 | Ruta | Qué hay |
 |---|---|
-| [`src/labdino/`](src/labdino) | Código compartido que usan el notebook y el futuro backend |
+| [`src/labdino/`](src/labdino) | Código compartido que usan el notebook y el backend |
 | [`name_generator/`](name_generator) | Notebook de entrenamiento y evaluación + [`artifacts/`](name_generator/artifacts) (lo único que carga el backend) |
 | [`ollama/`](ollama) | Registro del modelo, prompt de identidad, scripts y la ficha generada |
+| [`sagemaker/`](sagemaker) | `on-start.sh` (lifecycle: Docker con `data-root` persistente, Ollama, ngrok opcional) y `ollama_sagemaker.ipynb` (verificación) |
+| [`image_generator/`](image_generator) | `generate_image.py`, `colab_image_server.ipynb` (servidor de imágenes con ngrok), `requirements.txt` |
+| [`app/`](app) | `server.py` (FastAPI: chat y Nuevo Dinosaurio) y `static/index.html` (interfaz) |
+| [`deploy/`](deploy) | `Dockerfile` y `ec2_user_data.sh` para desplegar la app en EC2 |
+| [`docs/`](docs) | Guía del laboratorio y [componentes.md](docs/componentes.md) |
 | [`evidence/`](evidence) | Curvas de pérdida, resumen de entrenamiento, configuraciones de muestreo, 10 nombres y su análisis |
 | [`data/`](data) | `dinos.csv` |
 | [`tests/`](tests) | Pruebas con `pytest` |
@@ -75,6 +80,8 @@ Módulos principales de `src/labdino/`:
 | `sampling` | Muestreo autoregresivo con temperatura, top-k y top-p; métricas de novedad |
 | `artifacts` | Guardar y cargar el modelo para generar nombres sin reentrenar |
 | `ollama_client`, `identity` | Cliente HTTP de Ollama; prompt, esquema JSON, validación y reintentos de la ficha |
+| `chat` | Prompt de sistema con la ficha, saludo y detección de peticiones que llevan imagen |
+| `image_client` | Cliente HTTP del servidor de imágenes y construcción del prompt visual |
 
 ## Cómo funciona
 
@@ -121,6 +128,51 @@ El nombre elegido pasa a un LLM local (`gemma4:e2b`, Ollama 0.40.6; versiones ex
 - **Semillas:** prueba 42, 43 y 44 y conserva la primera ficha sin advertencias. La elegida y el motivo quedan en
   [ollama/identity.json](ollama/identity.json), junto con el prompt, el modelo, los parámetros y la fecha.
 
+### 3. Imagen
+
+`amused/amused-512` (diffusers) genera un retrato 512x512 a partir de `visual_prompt_en` de la ficha más un estilo fijo (sin el nombre propio).
+
+- **Script:** `image_generator/generate_image.py` lee `ollama/identity.json` y guarda `image_generator/outputs/<nombre>.png` y un `.json` con prompt, semilla y parámetros.
+  Usa GPU si hay; en CPU funciona pero tarda.
+- **Colab:** `image_generator/colab_image_server.ipynb` genera la imagen de Doractodon y levanta un servidor `POST /generate` expuesto con ngrok
+  (token en los *Secrets* de Colab como `NGROK_TOKEN`).
+- La app pide la imagen **una sola vez** por dinosaurio y la reutiliza en el chat.
+
+### 4. App web y chat
+
+FastAPI ([`app/server.py`](app/server.py)) sirve la interfaz ([`app/static/index.html`](app/static/index.html)) y conecta todo el flujo.
+
+- **Inicio:** muestra a Doractodon (ficha de `ollama/identity.json` e imagen de `image_generator/outputs/`), con nombre, descripción, imagen e información del modelo de nombres.
+- **Chat:** cada petición a Ollama lleva la ficha como mensaje de sistema, con la regla de no contradecirla. Si el usuario pide que se presente o se describa, la respuesta incluye la imagen.
+- **Nuevo Dinosaurio:** el modelo ya entrenado genera otro nombre, Ollama crea la ficha y se pide la imagen; no se reentrena. Sin `IMAGE_API_URL` la app funciona sin imagen nueva.
+- Endpoints y payloads: [docs/componentes.md](docs/componentes.md).
+
+## Ejecutar la app localmente
+
+Necesita un Ollama accesible y, opcionalmente, el servidor de imágenes (si no, el dinosaurio nuevo queda sin imagen).
+
+```bash
+cp .env.example .env                     # completa OLLAMA_BASE_URL, OLLAMA_MODEL e IMAGE_API_URL
+set -a; source .env; set +a
+uv run uvicorn app.server:app --host 0.0.0.0 --port 8000
+```
+
+Abrir <http://localhost:8000>. Con `uv sync` ya se instalan las dependencias de `src/labdino`; si falta FastAPI o uvicorn, `uv pip install fastapi uvicorn`.
+
+## Despliegue
+
+Orden: SageMaker → Colab → EC2. Las URLs de ngrok cambian cada vez que se reinicia un túnel y no se versionan.
+
+1. **SageMaker:** crear la *lifecycle configuration* on-start con `sagemaker/on-start.sh`, crear el notebook `ml.m5.xlarge` (volumen ≥ 30 GB) con ella y abrir `sagemaker/ollama_sagemaker.ipynb` para verificar Docker, el modelo y una respuesta.
+2. **Token de ngrok en SageMaker:** guardarlo en `/home/ec2-user/SageMaker/.ngrok_token` (fuera de git) y reiniciar el notebook; la lifecycle abre el túnel al puerto 11434. Leer la URL en la última celda del notebook.
+3. **Colab:** abrir `image_generator/colab_image_server.ipynb` con GPU T4, poner `NGROK_TOKEN` en *Secrets*, ejecutar todas las celdas y copiar la URL impresa (`IMAGE_API_URL`).
+4. **EC2:** lanzar una instancia Amazon Linux 2023 con `deploy/ec2_user_data.sh` como user data y el puerto 80 abierto en el security group. Construye la imagen Docker y arranca la app.
+5. **Variables:** en la instancia, escribir `/opt/labdino.env` con `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_NGROK_SKIP_WARNING=true`, `IMAGE_API_URL` e `IMAGE_NGROK_SKIP_WARNING=true`, y reiniciar con `docker restart labdino`.
+6. **Probar:** abrir la IP pública de la EC2 y recorrer la lista de verificación de abajo.
+
+Estado: el código y los pasos están documentados; el despliegue en AWS está pendiente (**Sitio web: _pendiente_**).
+El `Dockerfile` copia `image_generator/outputs/`, que debe contener `doractodon.png` antes de construir.
+
 ## Configuración
 
 El repo no trae URLs ni credenciales. Las variables se leen del entorno (plantilla en [`.env.example`](.env.example); `.env` está en `.gitignore`):
@@ -133,6 +185,9 @@ El repo no trae URLs ni credenciales. Las variables se leen del entorno (plantil
 | `OLLAMA_CONNECT_TIMEOUT` / `OLLAMA_READ_TIMEOUT` | Tiempos de espera en segundos | `5` / `300` |
 | `OLLAMA_IDENTITY_THINK` | Razonamiento del modelo al crear la ficha | `true` |
 | `OLLAMA_CHAT_THINK` | Razonamiento del modelo en el chat | `false` |
+| `IMAGE_API_URL` | URL base del servidor de imágenes (Colab/ngrok); vacía = sin imagen nueva | vacía |
+| `IMAGE_NGROK_SKIP_WARNING` | Añade la cabecera `ngrok-skip-browser-warning` | `false` |
+| `IMAGE_TIMEOUT` | Tiempo de espera de la imagen en segundos | `300` |
 
 Los errores de conexión, de modelo inexistente o de configuración indican qué variable revisar.
 
@@ -167,9 +222,18 @@ Los checkpoints de A y B están en `evidence/checkpoints/` como evidencia.
 
 - [x] Generador de nombres: entrenamiento, comparación de dos configuraciones, muestreo y artefactos
 - [x] Identidad con Ollama en local
-- [ ] Ollama en SageMaker (`m5.xlarge`, Docker con `data-root` persistente y script `on-start`)
-- [ ] Imagen con un modelo text-to-image a partir de la ficha
-- [ ] Aplicación web con el chat y el botón **Nuevo Dinosaurio**, desplegada en AWS
+- [x] Ollama en SageMaker (`m5.xlarge`, Docker con `data-root` persistente y script `on-start`): implementado en código
+- [x] Imagen con un modelo text-to-image a partir de la ficha: implementado en código
+- [x] Aplicación web con el chat y el botón **Nuevo Dinosaurio**: implementada en código
+- [ ] Despliegue en AWS: pasos documentados, pendiente publicar y enlazar el sitio (**Sitio web: _pendiente_**)
 
-Nota para la app: en *Nuevo Dinosaurio* la semilla del nombre y la de la identidad deben ser aleatorias. `generate_novel_name` ya lo es sin
-generador; para la identidad hay que pasar semillas distintas a `generate_clean_identity(seeds=...)`.
+## Verificación antes de la entrega
+
+- [ ] Los diez nombres generados no son copias directas del conjunto de entrenamiento
+- [ ] El dinosaurio seleccionado tiene una identidad coherente
+- [ ] La imagen corresponde con los rasgos descritos
+- [ ] El chat conserva la identidad durante la conversación
+- [ ] La imagen aparece en el chat al presentar o describir al dinosaurio
+- [ ] El botón Nuevo Dinosaurio inicia una nueva generación sin reentrenar el modelo
+- [ ] El sitio web es accesible
+- [ ] El repositorio contiene las instrucciones necesarias y no publica información sensible

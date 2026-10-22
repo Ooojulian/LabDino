@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LabDino</title>
+<style>
+  :root { --bg:#f4f1ea; --card:#fff; --ink:#2b2a26; --mute:#6f6a5f; --acc:#3f7d4e; --line:#e2ddd2; --me:#e6f0e8; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--line); background:var(--card); }
+  h1 { font-size:20px; margin:0; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:9px 16px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:wait; }
+  main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; padding:18px; max-width:1200px; margin:auto; }
+  @media (max-width:820px) { main { grid-template-columns:1fr; padding:16px; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  #portrait { width:100%; max-width:420px; aspect-ratio:1; object-fit:cover; border-radius:10px; background:var(--line); display:block; margin:0 auto 10px; }
+  h2 { margin:4px 0 8px; font-size:26px; }
+  dt { font-weight:600; margin-top:8px; } dd { margin:0; color:var(--mute); }
+  details { margin-top:14px; font-size:13px; color:var(--mute); }
+  table { border-collapse:collapse; } td { padding:2px 10px 2px 0; }
+  #chat { display:flex; flex-direction:column; height:min(80vh,760px); }
+  #log { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding-bottom:10px; }
+  .msg { max-width:85%; padding:9px 12px; border-radius:12px; background:var(--bg); white-space:pre-wrap; }
+  .msg.user { align-self:flex-end; background:var(--me); }
+  .msg img { width:220px; max-width:100%; border-radius:8px; display:block; margin-top:6px; }
+  form { display:flex; gap:8px; }
+  input { flex:1; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+  #status { color:var(--mute); font-size:13px; min-height:1.4em; }
+</style>
+</head>
+<body>
+<header><h1>🦖 LabDino</h1><button id="new">Nuevo Dinosaurio</button></header>
+<main>
+  <section class="card" id="sheet">
+    <img id="portrait" alt="Retrato del dinosaurio">
+    <div id="status"></div>
+    <h2 id="name">…</h2>
+    <dl id="traits"></dl>
+    <details><summary>Modelo usado para crear el nombre</summary><table id="model"></table></details>
+  </section>
+  <section class="card" id="chat">
+    <div id="log"></div>
+    <form id="form"><input id="text" placeholder="Pregúntale algo al dinosaurio…" autocomplete="off"><button>Enviar</button></form>
+  </section>
+</main>
+<script>
+const LABELS = {apariencia:"Apariencia", habitat:"Hábitat", alimentacion:"Alimentación",
+  comportamiento:"Comportamiento", caracteristica_distintiva:"Característica distintiva"};
+let dino = null, history = [];
+const $ = id => document.getElementById(id);
+
+function addMsg(role, text, img) {
+  const d = document.createElement("div");
+  d.className = "msg " + role; d.textContent = text;
+  if (img) { const i = new Image(); i.src = img; i.alt = dino.name; d.appendChild(i); }
+  $("log").appendChild(d); $("log").scrollTop = 1e9;
+}
+
+function show(d) {
+  dino = d; history = [];
+  $("name").textContent = d.name;
+  $("portrait").src = d.image_url || ""; $("portrait").style.visibility = d.image_url ? "visible" : "hidden";
+  $("status").textContent = d.image_error ? "Sin imagen: " + d.image_error : "";
+  $("traits").innerHTML = "";
+  for (const [k, label] of Object.entries(LABELS)) {
+    const dt = document.createElement("dt"), dd = document.createElement("dd");
+    dt.textContent = label; dd.textContent = d.identity[k]; $("traits").append(dt, dd);
+  }
+  $("log").innerHTML = "";
+  addMsg("dino", d.greeting, d.image_url);   // la presentación siempre lleva la imagen
+  history.push({role:"assistant", content:d.greeting});
+}
+
+async function api(path, body) {
+  const r = await fetch(path, body ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)} : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.detail || r.statusText);
+  return j;
+}
+
+async function loadInfo() {
+  const m = (await api("/api/info")).name_model;
+  const rows = [["Arquitectura", m.arquitectura], ["Capas", m.capas], ["Hidden", m.hidden_size], ["Dropout", m.dropout],
+    ["T (longitud máx.)", m.T], ["Vocabulario", m.vocabulario], ["Muestreo", JSON.stringify(m.muestreo)],
+    ["Nombres de entrenamiento", m.nombres_entrenamiento]];
+  $("model").innerHTML = rows.map(([a,b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("");
+}
+
+$("new").onclick = async () => {
+  $("new").disabled = true; $("status").textContent = "Generando nombre, identidad e imagen… (puede tardar 1-3 min)";
+  try { show(await api("/api/dino/new", {})); } catch (e) { $("status").textContent = "Error: " + e.message; }
+  $("new").disabled = false;
+};
+
+$("form").onsubmit = async ev => {
+  ev.preventDefault();
+  const text = $("text").value.trim(); if (!text || !dino) return;
+  $("text").value = ""; addMsg("user", text); history.push({role:"user", content:text});
+  const btn = ev.submitter; btn.disabled = true;
+  try {
+    const r = await api("/api/chat", {dino_id:dino.id, messages:history});
+    addMsg("dino", r.reply, r.image_url); history.push({role:"assistant", content:r.reply});
+  } catch (e) { addMsg("dino", "⚠️ " + e.message); history.pop(); }
+  btn.disabled = false;
+};
+
+loadInfo();
+api("/api/dino").then(show).catch(() => $("status").textContent = "Pulsa «Nuevo Dinosaurio» para empezar.");
+</script>
+</body>
+</html>
