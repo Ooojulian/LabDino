@@ -1,4 +1,4 @@
-"""Servidor HTTP de imágenes (amused-512). Mismo contrato que el notebook de Colab.
+"""Servidor HTTP de imágenes (sd-turbo). Mismo contrato que el notebook de Colab.
 
     POST /generate {"prompt": str, "seed": int|null} -> image/png
     GET  /health -> {"ok": true, "model": ...}

@@ -1,6 +1,11 @@
-"""Genera la imagen de un dinosaurio con amused/amused-512 (diffusers).
+"""Genera la imagen fotorrealista de un dinosaurio con stabilityai/sd-turbo (diffusers).
 
-Uso (en Colab o una máquina con GPU; en CPU funciona pero tarda varios minutos):
+Modelo: sd-turbo en vez de amused-512 (la guía permite 'otra alternativa de tamaño similar'). Razones: (1) más realista:
+da fotografía de vida salvaje, mientras amused sale caricaturesco/plano; (2) tamaño similar (~1B de parámetros, ~2 GB
+en fp16); (3) corre en CPU: 512x512 con 1-4 pasos y guidance 0 (destilado), ~50 s en 4 vCPU. Por eso el prompt negativo
+no se usa en la inferencia (guidance 0) y solo se registra en el json.
+
+Uso (Colab/GPU: segundos; CPU de 4 vCPU: ~50 s):
     pip install -r image_generator/requirements.txt
     python image_generator/generate_image.py                       # usa ollama/identity.json (Doractodon)
     python image_generator/generate_image.py --identity otra.json --out salida.png --seed 7
@@ -11,24 +16,29 @@ Salida:  PNG 512x512 en image_generator/outputs/<nombre>.png
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 import torch
-from diffusers import AmusedPipeline
+from diffusers import AutoPipelineForText2Image
 
 ROOT = Path(__file__).resolve().parent.parent
-MODEL_ID = "amused/amused-512"
-STYLE = ("full body, side view, paleontological illustration, natural lighting, detailed skin texture, "
-         "plain background, no text")
-NEGATIVE = "text, watermark, low quality, blurry, deformed, extra limbs, human"
+MODEL_ID = "stabilityai/sd-turbo"
+STYLE = ("wildlife photograph, photorealistic, National Geographic, full body, wide shot, side view, "
+         "dry open landscape, natural daylight, realistic skin texture")
+NEGATIVE = "cartoon, illustration, drawing, 3d render, anime, toy, cgi, painting, text, watermark"  # sd-turbo (guidance 0) lo ignora; se registra en el json
+STEPS = 4
+GUIDANCE = 0.0
 
 
-def load_pipeline() -> AmusedPipeline:
+def load_pipeline() -> AutoPipelineForText2Image:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
     kwargs = {"variant": "fp16"} if device == "cuda" else {}
-    return AmusedPipeline.from_pretrained(MODEL_ID, torch_dtype=dtype, **kwargs).to(device)
+    if device == "cpu":
+        torch.set_num_threads(os.cpu_count() or 4)
+    return AutoPipelineForText2Image.from_pretrained(MODEL_ID, torch_dtype=dtype, **kwargs).to(device)
 
 
 def build_prompt(identity: dict) -> str:
@@ -36,10 +46,10 @@ def build_prompt(identity: dict) -> str:
     return f"{visual}, {STYLE}" if visual else f"a fictional dinosaur, {STYLE}"
 
 
-def generate(pipe: AmusedPipeline, prompt: str, seed: int | None = 0, steps: int = 12):
+def generate(pipe: AutoPipelineForText2Image, prompt: str, seed: int | None = 0, steps: int = STEPS):
     gen = torch.Generator(pipe.device).manual_seed(seed) if seed is not None else None
-    return pipe(prompt, negative_prompt=NEGATIVE, generator=gen, num_inference_steps=steps,
-                guidance_scale=10.0).images[0]
+    return pipe(prompt, generator=gen, num_inference_steps=steps, guidance_scale=GUIDANCE,
+                height=512, width=512).images[0]
 
 
 def main() -> None:
@@ -56,7 +66,7 @@ def main() -> None:
     generate(load_pipeline(), prompt, a.seed).save(out)
     (out.with_suffix(".json")).write_text(json.dumps(
         {"name": data["name"], "model": MODEL_ID, "prompt": prompt, "negative_prompt": NEGATIVE, "seed": a.seed,
-         "steps": 12, "guidance_scale": 10.0, "resolution": "512x512"}, indent=2), encoding="utf-8")
+         "steps": STEPS, "guidance_scale": GUIDANCE, "resolution": "512x512"}, indent=2), encoding="utf-8")
     print(out)
 
 

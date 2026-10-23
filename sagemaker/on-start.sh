@@ -32,7 +32,7 @@ for i in $(seq 1 30); do curl -sf localhost:11434/api/version && break; sleep 2;
 # en segundo plano: la lifecycle tiene límite de 5 min y la primera descarga puede tardar más
 nohup docker exec ollama ollama pull "$MODEL" > $PERSIST/pull.log 2>&1 &
 
-# 4. Servidor de imágenes (amused-512 en CPU) en el puerto 8001
+# 4. Servidor de imágenes (sd-turbo en CPU) en el puerto 8001
 REPO=$PERSIST/LabDino
 [ -d "$REPO" ] || sudo -u ec2-user git clone https://github.com/Ooojulian/LabDino "$REPO"
 sudo -u ec2-user git -C "$REPO" pull --ff-only || true

@@ -14,7 +14,7 @@ flowchart LR
     end
     subgraph SM["SageMaker notebook ml.m5.xlarge · misma VPC"]
         OLL[Ollama gemma4:e2b<br/>Docker :11434]
-        IMG[Servidor de imágenes<br/>amused-512 en CPU · Docker :8001]
+        IMG[Servidor de imágenes<br/>sd-turbo en CPU · Docker :8001]
     end
     APP -->|IP privada · /api/chat, /api/generate| OLL
     APP -->|IP privada · POST /generate| IMG
@@ -69,7 +69,7 @@ Mismo contrato en ambos entornos.
 
 | Endpoint | Recibe | Devuelve |
 |---|---|---|
-| `GET /health` | Nada | `{"ok": true, "model": "amused/amused-512"}` |
+| `GET /health` | Nada | `{"ok": true, "model": "stabilityai/sd-turbo"}` |
 | `POST /generate` | `{"prompt": str, "seed": int \| null}` (el prompt se trunca a 400 caracteres) | `200 image/png` (512x512) |
 
 Ejemplo:

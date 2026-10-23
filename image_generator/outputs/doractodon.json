@@ -1,10 +1,10 @@
 {
   "name": "doractodon",
-  "model": "amused/amused-512",
-  "prompt": "A dinosaur with a robust, medium-sized body, earthy brown color, upright posture, and a conical bony protrusion on the top of the snout, full body, side view, paleontological illustration, natural lighting, detailed skin texture, plain background, no text",
-  "negative_prompt": "text, watermark, low quality, blurry, deformed, extra limbs, human",
+  "model": "stabilityai/sd-turbo",
+  "prompt": "A dinosaur with a robust, medium-sized body, earthy brown color, upright posture, and a conical bony protrusion on the top of the snout, wildlife photograph, photorealistic, National Geographic, full body, wide shot, side view, dry open landscape, natural daylight, realistic skin texture",
+  "negative_prompt": "cartoon, illustration, drawing, 3d render, anime, toy, cgi, painting, text, watermark",
   "seed": 0,
-  "steps": 12,
-  "guidance_scale": 10.0,
+  "steps": 4,
+  "guidance_scale": 0.0,
   "resolution": "512x512"
 }

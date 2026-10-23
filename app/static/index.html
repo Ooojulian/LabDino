@@ -4,110 +4,262 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LabDino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Libre+Franklin:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#f4f1ea; --card:#fff; --ink:#2b2a26; --mute:#6f6a5f; --acc:#3f7d4e; --line:#e2ddd2; --me:#e6f0e8; }
+  /* Paleta: selva de noche (por defecto) y cuaderno de campo (claro) */
+  :root {
+    --canopy:#0f2a20; --fern:#1b3d2e; --fern-2:#244b39; --line:#2f5a46;
+    --bone:#ece3cf; --lichen:#9db3a2; --amber:#e0a23a; --amber-ink:#2a1a04; --rust:#e07a55;
+    --bg:var(--canopy); --panel:var(--fern); --ink:var(--bone); --mute:var(--lichen);
+    --display:"Big Shoulders Display", "Arial Narrow", sans-serif;
+    --text:"Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg:#eee8d8; --panel:#f8f4e9; --fern-2:#e4dcc6; --line:#cfc4a6;
+      --ink:#16301f; --mute:#566b5b; --amber:#b9740f; --amber-ink:#fff8ea; --rust:#a8401d;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg:#eee8d8; --panel:#f8f4e9; --fern-2:#e4dcc6; --line:#cfc4a6;
+    --ink:#16301f; --mute:#566b5b; --amber:#b9740f; --amber-ink:#fff8ea; --rust:#a8401d;
+  }
   * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
-  header { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--line); background:var(--card); }
-  h1 { font-size:20px; margin:0; }
-  button { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:9px 16px; font-weight:600; cursor:pointer; }
-  button:disabled { opacity:.5; cursor:wait; }
-  main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; padding:18px; max-width:1200px; margin:auto; }
-  @media (max-width:820px) { main { grid-template-columns:1fr; padding:16px; } }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
-  #portrait { width:100%; max-width:420px; aspect-ratio:1; object-fit:cover; border-radius:10px; background:var(--line); display:block; margin:0 auto 10px; }
-  h2 { margin:4px 0 8px; font-size:26px; }
-  dt { font-weight:600; margin-top:8px; } dd { margin:0; color:var(--mute); }
-  details { margin-top:14px; font-size:13px; color:var(--mute); }
-  table { border-collapse:collapse; } td { padding:2px 10px 2px 0; }
-  #chat { display:flex; flex-direction:column; height:min(80vh,760px); }
-  #log { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding-bottom:10px; }
-  .msg { max-width:85%; padding:9px 12px; border-radius:12px; background:var(--bg); white-space:pre-wrap; }
-  .msg.user { align-self:flex-end; background:var(--me); }
-  .msg img { width:220px; max-width:100%; border-radius:8px; display:block; margin-top:6px; }
-  form { display:flex; gap:8px; }
-  input { flex:1; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
-  #status { color:var(--mute); font-size:13px; min-height:1.4em; }
+  [hidden] { display:none !important; }
+  html, body { margin:0; }
+  body { background:var(--bg); color:var(--ink); font:16px/1.6 var(--text); -webkit-font-smoothing:antialiased; }
+  button, input { font:inherit; color:inherit; }
+  :focus-visible { outline:2px solid var(--amber); outline-offset:3px; }
+
+  /* Barra */
+  .bar { display:flex; align-items:center; gap:14px; padding:14px max(16px, calc(50% - 660px)); border-bottom:1px solid var(--line); }
+  .mark { display:flex; align-items:baseline; gap:10px; }
+  .mark b { font:900 26px/1 var(--display); letter-spacing:.02em; text-transform:uppercase; }
+  .mark span { color:var(--mute); font-size:14px; }
+  .grow { flex:1; }
+  .icon-btn { width:42px; height:42px; border-radius:50%; border:1px solid var(--line); background:transparent; display:grid; place-items:center; cursor:pointer; }
+  .icon-btn:hover { background:var(--panel); }
+  .act { border:0; background:var(--amber); color:var(--amber-ink); border-radius:6px; padding:11px 20px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .act:hover { filter:brightness(1.08); }
+  .act:disabled { opacity:.6; cursor:progress; }
+  @media (max-width:560px) { .mark span { display:none; } .act { padding:10px 14px; font-size:15px; } }
+
+  main { max-width:1320px; margin:0 auto; padding:24px 16px 56px; display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,.9fr); gap:32px; align-items:start; }
+  @media (max-width:980px) { main { grid-template-columns:1fr; gap:24px; } }
+
+  /* Expediente: la foto con el nombre como letrero de recinto */
+  .specimen { position:relative; border-radius:4px; overflow:hidden; background:var(--fern-2); aspect-ratio:4/3; }
+  .specimen img { width:100%; height:100%; object-fit:cover; display:block; }
+  .specimen::after { content:""; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 35%, transparent 55%, rgba(15,42,32,.55) 100%),
+               linear-gradient(to top, rgba(15,42,32,.85), transparent 38%); }
+  .specimen .none { position:absolute; inset:0; display:grid; place-items:center; color:var(--mute); padding:24px; text-align:center; }
+  .sign { position:absolute; left:0; right:0; bottom:0; z-index:1; padding:0 24px 18px; }
+  h1 { margin:0; font:900 clamp(52px, 9vw, 120px)/.86 var(--display); text-transform:uppercase; letter-spacing:.01em; color:#f3ead6;
+       text-shadow:0 2px 24px rgba(0,0,0,.35); overflow-wrap:anywhere; }
+  .sign p { margin:8px 0 0; color:#d9cfb8; font-size:14px; }
+  .reveal { animation:reveal .9s ease-out; }
+  @keyframes reveal { from { filter:sepia(1) saturate(2.4) brightness(1.4); opacity:.3; } to { filter:none; opacity:1; } }
+  @media (prefers-reduced-motion: reduce) { .reveal { animation:none; } }
+
+  .summary { font-size:19px; line-height:1.55; max-width:62ch; margin:22px 0 28px; }
+  h2 { font:800 26px/1.1 var(--display); text-transform:uppercase; letter-spacing:.03em; margin:0 0 12px; }
+  .sheet { display:grid; grid-template-columns:170px minmax(0,1fr); border-top:1px solid var(--line); margin:0 0 36px; }
+  .sheet dt, .sheet dd { margin:0; padding:14px 0; border-bottom:1px solid var(--line); }
+  .sheet dt { font-weight:600; color:var(--amber); padding-right:16px; }
+  .sheet dd { color:var(--ink); max-width:68ch; }
+  @media (max-width:560px) { .sheet { grid-template-columns:1fr; } .sheet dt { border-bottom:0; padding-bottom:0; } }
+  .model { width:100%; border-collapse:collapse; font-size:15px; }
+  .model td { padding:9px 0; border-bottom:1px solid var(--line); }
+  .model td:first-child { color:var(--mute); width:45%; }
+  .model td:last-child { font-variant-numeric:tabular-nums; }
+
+  /* Radio de campo (chat) */
+  .radio { position:sticky; top:20px; display:flex; flex-direction:column; height:min(calc(100vh - 40px), 860px); min-height:560px;
+           background:var(--panel); border:1px solid var(--line); border-radius:4px; }
+  @media (max-width:980px) { .radio { position:static; height:680px; } }
+  .radio header { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--line); }
+  .radio header img, .radio header .ph { width:46px; height:46px; border-radius:50%; object-fit:cover; border:2px solid var(--amber); background:var(--fern-2); flex:none; }
+  .radio header strong { display:block; font:800 22px/1 var(--display); text-transform:uppercase; letter-spacing:.03em; }
+  .radio header small { color:var(--mute); }
+  #log { flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:16px; }
+  .msg { max-width:88%; }
+  .msg .who { font-size:13px; font-weight:600; color:var(--mute); margin-bottom:3px; }
+  .msg .body { padding:11px 14px; border-radius:4px; background:var(--fern-2); white-space:pre-wrap; overflow-wrap:anywhere; border-left:3px solid var(--amber); }
+  .msg.user { align-self:flex-end; }
+  .msg.user .who { text-align:right; }
+  .msg.user .body { background:transparent; border:1px solid var(--line); border-left-width:1px; }
+  .msg img { display:block; width:100%; max-width:320px; border-radius:3px; margin-top:10px; }
+  .msg.err .body { border-left-color:var(--rust); color:var(--rust); }
+  .wait { display:inline-flex; gap:5px; }
+  .wait i { width:7px; height:7px; border-radius:50%; background:var(--amber); animation:pulse 1.2s infinite; }
+  .wait i:nth-child(2) { animation-delay:.2s; } .wait i:nth-child(3) { animation-delay:.4s; }
+  @keyframes pulse { 0%,80%,100% { opacity:.25 } 40% { opacity:1 } }
+  .quick { display:flex; flex-wrap:wrap; gap:8px; padding:0 18px 12px; }
+  .quick button { background:transparent; border:1px solid var(--line); border-radius:999px; padding:6px 13px; font-size:14px; cursor:pointer; color:var(--ink); }
+  .quick button:hover { border-color:var(--amber); }
+  form { display:flex; gap:8px; padding:12px 14px 14px; border-top:1px solid var(--line); }
+  form input { flex:1; min-width:0; background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:12px 14px; outline:0; }
+  form input:focus { border-color:var(--amber); }
+
+  /* Generación en curso */
+  .busy { position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:16px; background:rgba(8,22,16,.72); }
+  .busy > div { width:min(460px,100%); background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:4px; padding:26px; }
+  .busy h3 { margin:0 0 6px; font:800 30px/1 var(--display); text-transform:uppercase; }
+  .busy p { margin:0 0 18px; color:var(--mute); font-size:15px; }
+  .busy ol { margin:0; padding-left:22px; display:grid; gap:6px; }
+  .busy ol li::marker { color:var(--amber); font-weight:600; }
+  .busy .t { margin-top:16px; color:var(--mute); font-variant-numeric:tabular-nums; font-size:14px; }
+  .note { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); z-index:20; max-width:calc(100% - 32px);
+          background:var(--ink); color:var(--bg); padding:12px 18px; border-radius:6px; }
 </style>
 </head>
 <body>
-<header><h1>🦖 LabDino</h1><button id="new">Nuevo Dinosaurio</button></header>
-<main>
-  <section class="card" id="sheet">
-    <img id="portrait" alt="Retrato del dinosaurio">
-    <div id="status"></div>
-    <h2 id="name">…</h2>
-    <dl id="traits"></dl>
-    <details><summary>Modelo usado para crear el nombre</summary><table id="model"></table></details>
-  </section>
-  <section class="card" id="chat">
-    <div id="log"></div>
-    <form id="form"><input id="text" placeholder="Pregúntale algo al dinosaurio…" autocomplete="off"><button>Enviar</button></form>
-  </section>
-</main>
-<script>
-const LABELS = {apariencia:"Apariencia", habitat:"Hábitat", alimentacion:"Alimentación",
-  comportamiento:"Comportamiento", caracteristica_distintiva:"Característica distintiva"};
-let dino = null, history = [];
-const $ = id => document.getElementById(id);
+<div class="bar">
+  <div class="mark"><b>LabDino</b><span>Estación de campo, especies ficticias</span></div>
+  <div class="grow"></div>
+  <button class="icon-btn" id="theme" aria-label="Cambiar entre modo claro y oscuro">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+  <button class="act" id="new">Nuevo dinosaurio</button>
+</div>
 
-function addMsg(role, text, img) {
-  const d = document.createElement("div");
-  d.className = "msg " + role; d.textContent = text;
-  if (img) { const i = new Image(); i.src = img; i.alt = dino.name; d.appendChild(i); }
-  $("log").appendChild(d); $("log").scrollTop = 1e9;
+<main>
+  <article>
+    <div class="specimen">
+      <img id="portrait" alt="" hidden>
+      <div class="none" id="none">Este ejemplar todavía no tiene retrato.</div>
+      <div class="sign"><h1 id="name">Cargando</h1><p id="origin"></p></div>
+    </div>
+    <p class="summary" id="summary"></p>
+
+    <h2>Ficha de la especie</h2>
+    <dl class="sheet" id="sheet"></dl>
+
+    <h2>Cómo se creó el nombre</h2>
+    <table class="model" id="model"></table>
+  </article>
+
+  <aside class="radio" aria-label="Conversación con el dinosaurio">
+    <header>
+      <img id="avatar" alt="" hidden><div class="ph" id="avatarPh"></div>
+      <div><strong id="chatName">Dinosaurio</strong><small>Responde según su ficha</small></div>
+    </header>
+    <div id="log" aria-live="polite"></div>
+    <div class="quick" id="quick"><button>Preséntate</button><button>¿Qué comes?</button><button>¿Dónde vives?</button><button>Descríbete</button></div>
+    <form id="form">
+      <input id="text" placeholder="Escribe tu pregunta" autocomplete="off" aria-label="Mensaje">
+      <button class="act" id="send">Enviar</button>
+    </form>
+  </aside>
+</main>
+
+<div class="busy" id="busy" role="dialog" aria-modal="true" aria-labelledby="busyTitle" hidden>
+  <div>
+    <h3 id="busyTitle">Creando un dinosaurio</h3>
+    <p>El modelo ya entrenado propone el nombre; no se vuelve a entrenar. Tarda entre 1 y 3 minutos.</p>
+    <ol>
+      <li>La red recurrente genera un nombre nuevo.</li>
+      <li>Ollama escribe la ficha de la especie.</li>
+      <li>El modelo de imágenes pinta su retrato.</li>
+    </ol>
+    <div class="t" id="timer">0 s transcurridos</div>
+  </div>
+</div>
+<div class="note" id="note" hidden></div>
+
+<script>
+const FIELDS = [["apariencia","Apariencia"],["habitat","Hábitat"],["alimentacion","Alimentación"],
+  ["comportamiento","Comportamiento"],["caracteristica_distintiva","Rasgo distintivo"]];
+const $ = id => document.getElementById(id);
+let dino = null, history = [];
+
+const root = document.documentElement;
+try { const t = localStorage.getItem("theme"); if (t) root.dataset.theme = t; } catch {}
+$("theme").onclick = () => {
+  const light = root.dataset.theme ? root.dataset.theme === "light" : matchMedia("(prefers-color-scheme: light)").matches;
+  root.dataset.theme = light ? "dark" : "light";
+  try { localStorage.setItem("theme", root.dataset.theme); } catch {}
+};
+
+function note(msg) { const n = $("note"); n.textContent = msg; n.hidden = false; clearTimeout(n._t); n._t = setTimeout(() => n.hidden = true, 7000); }
+
+function setImage(url) {
+  for (const id of ["portrait", "avatar"]) { $(id).hidden = !url; if (url) $(id).src = url; }
+  $("none").hidden = !!url; $("avatarPh").hidden = !!url;
+  if (url) { $("portrait").classList.remove("reveal"); void $("portrait").offsetWidth; $("portrait").classList.add("reveal"); }
+}
+
+function addMsg(role, text, img, err) {
+  const m = document.createElement("div"); m.className = "msg " + role + (err ? " err" : "");
+  const w = document.createElement("div"); w.className = "who"; w.textContent = role === "user" ? "Tú" : dino.name;
+  const b = document.createElement("div"); b.className = "body"; b.textContent = text;
+  if (img) { const i = new Image(); i.src = img; i.alt = "Retrato de " + dino.name; b.appendChild(i); }
+  m.append(w, b); $("log").appendChild(m); $("log").scrollTop = 1e9;
+  return m;
 }
 
 function show(d) {
   dino = d; history = [];
-  $("name").textContent = d.name;
-  $("portrait").src = d.image_url || ""; $("portrait").style.visibility = d.image_url ? "visible" : "hidden";
-  $("status").textContent = d.image_error ? "Sin imagen: " + d.image_error : "";
-  $("traits").innerHTML = "";
-  for (const [k, label] of Object.entries(LABELS)) {
+  $("name").textContent = d.name; $("chatName").textContent = d.name; document.title = d.name + " — LabDino";
+  $("summary").textContent = d.identity.resumen_visual || "";
+  $("origin").textContent = d.meta?.ollama_model ? "Ficha escrita por " + d.meta.ollama_model : "";
+  setImage(d.image_url);
+  if (d.image_error) note("El retrato no se pudo generar: " + d.image_error);
+  $("sheet").innerHTML = "";
+  for (const [k, label] of FIELDS) {
     const dt = document.createElement("dt"), dd = document.createElement("dd");
-    dt.textContent = label; dd.textContent = d.identity[k]; $("traits").append(dt, dd);
+    dt.textContent = label; dd.textContent = d.identity[k] || ""; $("sheet").append(dt, dd);
   }
   $("log").innerHTML = "";
   addMsg("dino", d.greeting, d.image_url);   // la presentación siempre lleva la imagen
   history.push({role:"assistant", content:d.greeting});
 }
 
+function showModel(m) {
+  const s = m.muestreo || {};
+  const rows = [["Arquitectura", `${m.arquitectura}, ${m.capas} capas`], ["Tamaño del estado oculto", m.hidden_size],
+    ["Dropout", m.dropout], ["Longitud máxima T", m.T], ["Vocabulario", m.vocabulario + " caracteres"],
+    ["Muestreo", `temperatura ${s.temperature}` + (s.top_p ? `, top-p ${s.top_p}` : "") + (s.top_k ? `, top-k ${s.top_k}` : "")],
+    ["Nombres reales en el entrenamiento", m.nombres_entrenamiento]];
+  $("model").innerHTML = "";
+  for (const [a, b] of rows) { const tr = $("model").insertRow(); tr.insertCell().textContent = a; tr.insertCell().textContent = b; }
+}
+
 async function api(path, body) {
   const r = await fetch(path, body ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)} : {});
-  const j = await r.json();
+  const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.detail || r.statusText);
   return j;
 }
 
-async function loadInfo() {
-  const m = (await api("/api/info")).name_model;
-  const rows = [["Arquitectura", m.arquitectura], ["Capas", m.capas], ["Hidden", m.hidden_size], ["Dropout", m.dropout],
-    ["T (longitud máx.)", m.T], ["Vocabulario", m.vocabulario], ["Muestreo", JSON.stringify(m.muestreo)],
-    ["Nombres de entrenamiento", m.nombres_entrenamiento]];
-  $("model").innerHTML = rows.map(([a,b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("");
-}
-
 $("new").onclick = async () => {
-  $("new").disabled = true; $("status").textContent = "Generando nombre, identidad e imagen… (puede tardar 1-3 min)";
-  try { show(await api("/api/dino/new", {})); } catch (e) { $("status").textContent = "Error: " + e.message; }
-  $("new").disabled = false;
+  $("new").disabled = true; $("busy").hidden = false;
+  const t0 = Date.now(), tick = setInterval(() => $("timer").textContent = Math.round((Date.now() - t0) / 1000) + " s transcurridos", 1000);
+  try { show(await api("/api/dino/new", {})); }
+  catch (e) { note("No se pudo crear el dinosaurio: " + e.message); }
+  clearInterval(tick); $("timer").textContent = "0 s transcurridos";
+  $("busy").hidden = true; $("new").disabled = false;
 };
 
-$("form").onsubmit = async ev => {
-  ev.preventDefault();
-  const text = $("text").value.trim(); if (!text || !dino) return;
-  $("text").value = ""; addMsg("user", text); history.push({role:"user", content:text});
-  const btn = ev.submitter; btn.disabled = true;
+async function send(text) {
+  if (!text || !dino) return;
+  addMsg("user", text); history.push({role:"user", content:text});
+  $("send").disabled = true;
+  const w = addMsg("dino", ""); w.querySelector(".body").innerHTML = '<span class="wait"><i></i><i></i><i></i></span>';
   try {
     const r = await api("/api/chat", {dino_id:dino.id, messages:history});
-    addMsg("dino", r.reply, r.image_url); history.push({role:"assistant", content:r.reply});
-  } catch (e) { addMsg("dino", "⚠️ " + e.message); history.pop(); }
-  btn.disabled = false;
-};
+    w.remove(); addMsg("dino", r.reply, r.image_url); history.push({role:"assistant", content:r.reply});
+  } catch (e) { w.remove(); addMsg("dino", "Sin respuesta: " + e.message, null, true); history.pop(); }
+  $("send").disabled = false; $("text").focus();
+}
+$("form").onsubmit = ev => { ev.preventDefault(); const t = $("text").value.trim(); $("text").value = ""; send(t); };
+$("quick").onclick = ev => { if (ev.target.tagName === "BUTTON") send(ev.target.textContent); };
 
-loadInfo();
-api("/api/dino").then(show).catch(() => $("status").textContent = "Pulsa «Nuevo Dinosaurio» para empezar.");
+api("/api/info").then(j => showModel(j.name_model)).catch(() => {});
+api("/api/dino").then(show).catch(() => { $("name").textContent = "Sin ejemplar"; $("summary").textContent = "Pulsa «Nuevo dinosaurio» para crear el primero."; });
 </script>
 </body>
 </html>

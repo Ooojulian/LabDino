@@ -15,8 +15,8 @@ import httpx
 
 from labdino.ollama_client import NGROK_HEADER, env_bool
 
-STYLE = ("full body, side view, paleontological illustration, natural lighting, detailed skin texture, "
-         "plain background, no text")
+STYLE = ("wildlife photograph, photorealistic, National Geographic, full body, wide shot, side view, "
+         "dry open landscape, natural daylight, realistic skin texture")
 
 
 class ImageError(Exception):

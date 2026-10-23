@@ -130,7 +130,7 @@ El nombre elegido pasa a un LLM local (`gemma4:e2b`, Ollama 0.40.6; versiones ex
 
 ### 3. Imagen
 
-`amused/amused-512` (diffusers) genera un retrato 512x512 a partir de `visual_prompt_en` de la ficha más un estilo fijo (sin el nombre propio).
+`stabilityai/sd-turbo` (diffusers, 4 pasos, CPU ~50 s) genera una fotografía fotorrealista 512x512 a partir de `visual_prompt_en` de la ficha más un estilo fijo (sin el nombre propio).
 
 - **Script:** `image_generator/generate_image.py` lee `ollama/identity.json` y guarda `image_generator/outputs/<nombre>.png` y un `.json` con prompt, semilla y parámetros.
   Usa GPU si hay; en CPU funciona pero tarda.
@@ -172,7 +172,7 @@ Orden: SageMaker → Colab → EC2. Las URLs de ngrok cambian cada vez que se re
 
 Estado: desplegado en AWS (**Sitio web:** http://54.211.115.130, AWS Academy: solo responde mientras el Learner Lab está activo).
 
-**Arquitectura realmente usada:** el notebook SageMaker `labdino-ollama` (ml.m5.xlarge) en la VPC por defecto corre Ollama (gemma4:e2b, :11434) y el servidor de imágenes amused-512 en CPU (`image_generator/server.py` en Docker, :8001) mediante `sagemaker/on-start.sh`. La EC2 t3.medium `labdino-app` corre la app (:80) y los alcanza por IP privada con un security group compartido, sin ngrok. Colab/ngrok quedan como alternativa.
+**Arquitectura realmente usada:** el notebook SageMaker `labdino-ollama` (ml.m5.xlarge) en la VPC por defecto corre Ollama (gemma4:e2b, :11434) y el servidor de imágenes sd-turbo en CPU (`image_generator/server.py` en Docker, :8001) mediante `sagemaker/on-start.sh`. La EC2 t3.medium `labdino-app` corre la app (:80) y los alcanza por IP privada con un security group compartido, sin ngrok. Colab/ngrok quedan como alternativa.
 
 Para la sustentación: iniciar el Learner Lab, encender el notebook (Start) y la EC2. Si la IP pública de la EC2 cambia, actualizar el link; si cambia la IP privada del notebook, editar `/opt/labdino.env` y `docker restart labdino`.
 El `Dockerfile` copia `image_generator/outputs/`, que debe contener `doractodon.png` antes de construir.
@@ -235,7 +235,7 @@ Los checkpoints de A y B están en `evidence/checkpoints/` como evidencia.
 
 - [x] Los diez nombres generados no son copias directas del conjunto de entrenamiento
 - [x] El dinosaurio seleccionado tiene una identidad coherente
-- [ ] La imagen corresponde con los rasgos descritos (aproximada: amused-512 no siempre dibuja el rasgo distintivo)
+- [ ] La imagen corresponde con los rasgos descritos (aproximada: sd-turbo no siempre dibuja el rasgo distintivo)
 - [x] El chat conserva la identidad durante la conversación
 - [x] La imagen aparece en el chat al presentar o describir al dinosaurio
 - [x] El botón Nuevo Dinosaurio inicia una nueva generación sin reentrenar el modelo
