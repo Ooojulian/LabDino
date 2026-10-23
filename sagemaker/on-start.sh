@@ -38,7 +38,8 @@ REPO=$PERSIST/LabDino
 sudo -u ec2-user git -C "$REPO" pull --ff-only || true
 # contenedor python:3.11 con caché de pip/HF persistentes; la primera vez instala torch (varios minutos)
 if docker ps -a --format '{{.Names}}' | grep -q '^images$'; then
-  docker start images
+  # restart (no start): Docker ya lo levantó en el paso 1 con el código viejo, antes del git pull
+  docker restart images
 else
   docker run -d --name images --restart unless-stopped -p 8001:8001 \
     -v "$REPO":/repo -v $PERSIST/hf_cache:/root/.cache -e HF_HOME=/root/.cache/hf python:3.11-slim \
