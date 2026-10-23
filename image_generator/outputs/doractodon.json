@@ -1,9 +1,9 @@
 {
   "name": "doractodon",
   "model": "stabilityai/sd-turbo",
-  "prompt": "A dinosaur with a robust, medium-sized body, earthy brown color, upright posture, and a conical bony protrusion on the top of the snout, wildlife photograph, photorealistic, National Geographic, full body, wide shot, side view, dry open landscape, natural daylight, realistic skin texture",
+  "prompt": "Doractodon, a fictional dinosaur species: A dinosaur, robust medium-sized reptile, olive green color, with an iridescent bone plate along its dorsal spine, wildlife photograph, photorealistic, National Geographic, full body, wide shot, side view, in its natural habitat, natural daylight, realistic skin texture",
   "negative_prompt": "cartoon, illustration, drawing, 3d render, anime, toy, cgi, painting, text, watermark",
-  "seed": 0,
+  "seed": 4,
   "steps": 4,
   "guidance_scale": 0.0,
   "resolution": "512x512"

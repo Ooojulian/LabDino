@@ -16,16 +16,18 @@ import httpx
 from labdino.ollama_client import NGROK_HEADER, env_bool
 
 STYLE = ("wildlife photograph, photorealistic, National Geographic, full body, wide shot, side view, "
-         "dry open landscape, natural daylight, realistic skin texture")
+         "in its natural habitat, natural daylight, realistic skin texture")
 
 
 class ImageError(Exception):
     """Error al generar la imagen; el mensaje indica qué revisar."""
 
 
-def build_image_prompt(identity: dict) -> str:
-    """Prompt corto en inglés: la frase visual que escribió Ollama + estilo fijo (sin el nombre propio)."""
+def build_image_prompt(identity: dict, name: str | None = None) -> str:
+    """Prompt en inglés: nombre (si viene) + frase visual que escribió Ollama + estilo fijo."""
     visual = identity.get("visual_prompt_en", "").strip().rstrip(".")
+    if name:
+        return f"{name.strip().capitalize()}, a fictional dinosaur species: {visual or 'a fictional dinosaur'}, {STYLE}"
     return f"{visual}, {STYLE}" if visual else f"a fictional dinosaur, {STYLE}"
 
 

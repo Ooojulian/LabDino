@@ -1,243 +1,272 @@
-# 🦖 LabDino
+# LabDino
 
-**Una app que inventa un dinosaurio: le da nombre, le escribe una ficha científica, le pinta un retrato y te deja conversar con él.**
+App que inventa un dinosaurio: genera su nombre con una red recurrente de caracteres, le pide una ficha a un LLM local, crea su retrato con un modelo de difusión y permite conversar con él.
 
-Laboratorio II de Procesamiento de Lenguaje Natural · Universidad Sergio Arboleda · 2026 S02
-([guía del laboratorio](docs/guia_laboratorio.pdf))
+Laboratorio II de Procesamiento de Lenguaje Natural, Universidad Sergio Arboleda, 2026 S02 · [Guía del laboratorio](docs/guia_laboratorio.pdf)
+
+**Sitio:** http://184.73.83.84 (AWS Academy: solo responde mientras el Learner Lab está activo) · **Detalle de cada componente:** [docs/componentes.md](docs/componentes.md)
+
+<table>
+<tr>
+<td width="200"><img src="image_generator/outputs/doractodon.png" width="190" alt="Doractodon"></td>
+<td>
+
+**Doractodon**, el dinosaurio entregado.
+
+| Campo | Valor |
+|---|---|
+| Nombre | generado por la GRU (no está en el dataset) |
+| Aspecto | reptil robusto mediano, verde oliva |
+| Rasgo distintivo | placa ósea iridiscente a lo largo del lomo |
+| Hábitat | pantanos tropicales húmedos |
+| Dieta | herbívora, solitaria |
+
+Ficha completa: [ollama/identity.md](ollama/identity.md)
+
+</td>
+</tr>
+</table>
+
+## 1. Recorrido paso a paso
+
+Un ejemplo de punta a punta con datos reales del repo.
+
+**a) Dato.** `data/dinos.csv` tiene un nombre por línea, por ejemplo `Aardonyx`. Se pasa a minúsculas y sin espacios en los bordes: `aardonyx`.
+
+**b) Tokenización.** Cada carácter pasa a un número (su id en el vocabulario). Se añaden `<SOS>` (inicio), `<EOS>` (fin) y `<PAD>` (relleno para que todas las secuencias midan igual).
+
+| Posición | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 ... 27 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Token | `<SOS>` | a | a | r | d | o | n | y | x | `<EOS>` | `<PAD>` |
+| Id | 1 | 3 | 3 | 20 | 6 | 17 | 16 | 27 | 26 | 2 | 0 |
+
+**c) Par entrada/salida.** `X` es la secuencia sin el último token y `Y` es la misma secuencia corrida una posición. En cada posición la red recibe el carácter de `X` y debe adivinar el de `Y`:
+
+```
+X = 1  3  3  20  6  17  16  27  26  2 ...   (<SOS> a a r d o n y x <EOS>)
+Y = 3  3  20  6  17  16  27  26  2  0 ...   (a a r d o n y x <EOS> <PAD>)
+```
+
+**d) Qué predice la GRU.** Para cada posición produce 29 puntuaciones (una por token). Con `softmax` se vuelven probabilidades del siguiente carácter. Entrenar es hacer que la probabilidad del carácter correcto suba.
+
+**e) Cómo sale `doractodon`.** Se empieza con `<SOS>`. La red da probabilidades, se sortea un carácter (con temperatura 1.0 y top-p 0.9), ese carácter se devuelve como entrada y se repite: `d`, `o`, `r`, `a`, `c`, `t`, `o`, `d`, `o`, `n`, `<EOS>`. Si el nombre coincide con uno del dataset se descarta y se sortea otro.
+
+**f) Ollama.** El nombre entra en un prompt y `gemma4:e2b` devuelve un JSON con 7 claves. Resumen de [ollama/identity.json](ollama/identity.json):
+
+```
+apariencia, habitat, alimentacion, comportamiento   -> texto de la ficha
+caracteristica_distintiva : "Una placa ósea calcificada de color iridiscente emerge a lo largo del lomo dorsal ..."
+resumen_visual   : "Reptil robusto de tamaño medio, de color verde oliva, con una placa ósea
+                    iridiscente visible a lo largo de su lomo dorsal."
+visual_prompt_en : "A dinosaur, robust medium-sized reptile, olive green color,
+                    with an iridescent bone plate along its dorsal spine."
+```
+
+**g) Prompt de imagen.** Se arma con el nombre y los rasgos de Ollama, como pide la guía: `Doractodon, a fictional dinosaur species:` + `visual_prompt_en` + un estilo fijo: *wildlife photograph, photorealistic, National Geographic, full body, wide shot, side view, in its natural habitat, natural daylight, realistic skin texture*. Queda guardado en [image_generator/outputs/doractodon.json](image_generator/outputs/doractodon.json).
+
+**h) Imagen.** `sd-turbo` (4 pasos, 512x512) produce `doractodon.png`; la semilla elegida (4) está en el mismo json. El prompt real guardado es: *Doractodon, a fictional dinosaur species: A dinosaur, robust medium-sized reptile, olive green color, with an iridescent bone plate along its dorsal spine, wildlife photograph, photorealistic, National Geographic, full body, wide shot, side view, in its natural habitat, natural daylight, realistic skin texture*.
+
+**i) Chat.** Cada mensaje a Ollama lleva la ficha como mensaje de sistema con la orden de no contradecirla. Si el usuario pide que se presente o se describa, la respuesta incluye la imagen.
+
+## 2. Arquitectura
 
 ```mermaid
 flowchart LR
-    A[RNN de caracteres<br/>GRU en PyTorch] -->|nombre| B[Ollama<br/>gemma4:e2b]
-    B -->|identidad JSON| C[Text-to-image]
-    C -->|imagen| D[Chat con el dinosaurio]
-    B -->|descripción como contexto| D
+    U[Navegador] -->|HTTP :80| A
+    subgraph EC2["EC2 t3.medium (Docker)"]
+        A[FastAPI] --- N[GRU de caracteres]
+    end
+    subgraph SM["SageMaker ml.m5.xlarge, misma VPC"]
+        O[Ollama gemma4:e2b :11434]
+        I[sd-turbo :8001]
+    end
+    A -->|IP privada| O
+    A -->|IP privada| I
 ```
 
-**Sitio web:** http://54.211.115.130 (AWS Academy: solo responde mientras el Learner Lab está activo) · Documentación de cada componente (qué recibe y qué devuelve): [docs/componentes.md](docs/componentes.md)
+Flujo de **Nuevo Dinosaurio**, sin reentrenar:
 
-## Ejemplo
-
-El modelo de caracteres propone un nombre nuevo, que no está en el dataset, y Ollama construye la especie:
-
-> **Doractodon** — *Este dinosaurio es un animal de tamaño mediano, de color marrón terroso, con una postura erguida y
-> una protuberancia cónica en la parte superior del hocico que modifica su dentición.*
-> Hábitat: llanuras áridas y matorrales semiáridos · Dieta: herbívora especializada · Carácter: solitario y cauteloso.
-
-Ficha completa en [ollama/identity.md](ollama/identity.md).
-
-## Inicio rápido
-
-Requisitos: [uv](https://docs.astral.sh/uv/) y Python 3.12. Para la parte de identidad, un [Ollama](https://ollama.com/) accesible
-con el modelo descargado (`ollama pull gemma4:e2b`).
-
-```bash
-uv sync                                  # instala dependencias (PyTorch, httpx, pytest, jupyterlab…)
-uv run pytest                            # 74 tests; uno más, contra Ollama real, se omite sin variables de entorno
+```mermaid
+flowchart LR
+    N[Nombre GRU] --> F[Identidad Ollama] --> M[Imagen sd-turbo] --> C[Chat con la ficha]
 ```
 
-Para la app completa ver [Ejecutar la app localmente](#ejecutar-la-app-localmente).
+No se usa ngrok en el despliegue final; la EC2 llega a SageMaker por la IP privada con un security group compartido.
 
-**Generar un nombre sin reentrenar** (usa los artefactos versionados):
+## 3. Los datos
 
-```python
-from pathlib import Path
-from labdino.artifacts import load_artifacts, generate_novel_name
+[`data/dinos.csv`](data/dinos.csv) es una lista de nombres de dinosaurios, uno por línea (copia de [jpospinalo/MachineLearning](https://github.com/jpospinalo/MachineLearning/blob/main/nlp/dinos.csv)).
 
-art = load_artifacts(Path("name_generator/artifacts"))
-print(generate_novel_name(art).capitalize())   # p. ej. "Teratonia"; cada llamada usa una semilla distinta
-```
-
-**Generar la identidad** (necesita Ollama):
-
-```bash
-cp .env.example .env                     # completa OLLAMA_BASE_URL y OLLAMA_MODEL
-set -a; source .env; set +a              # el repo no lee .env por sí solo
-uv run python ollama/generate_identity.py
-```
-
-## Componentes
-
-| Ruta | Qué hay |
+| Dato | Valor |
 |---|---|
-| [`src/labdino/`](src/labdino) | Código compartido que usan el notebook y el backend |
-| [`name_generator/`](name_generator) | Notebook de entrenamiento y evaluación + [`artifacts/`](name_generator/artifacts) (lo único que carga el backend) |
-| [`ollama/`](ollama) | Registro del modelo, prompt de identidad, scripts y la ficha generada |
-| [`sagemaker/`](sagemaker) | `on-start.sh` (lifecycle: Docker con `data-root` persistente, Ollama, ngrok opcional) y `ollama_sagemaker.ipynb` (verificación) |
-| [`image_generator/`](image_generator) | `generate_image.py`, `colab_image_server.ipynb` (servidor de imágenes con ngrok), `requirements.txt` |
-| [`app/`](app) | `server.py` (FastAPI: chat y Nuevo Dinosaurio) y `static/index.html` (interfaz) |
-| [`deploy/`](deploy) | `Dockerfile` y `ec2_user_data.sh` para desplegar la app en EC2 |
-| [`docs/`](docs) | Guía del laboratorio y [componentes.md](docs/componentes.md) |
-| [`evidence/`](evidence) | Curvas de pérdida, resumen de entrenamiento, configuraciones de muestreo, 10 nombres y su análisis |
-| [`data/`](data) | `dinos.csv` |
-| [`tests/`](tests) | Pruebas con `pytest` |
+| Líneas del archivo | 1536 |
+| Nombres tras normalizar, quitar vacíos y duplicados | 1524 |
+| Longitud (caracteres) | mín. 3, máx. 26, media 11.96, mediana 12 |
+| Nombres que terminan en -saurus | 706 |
+| Vocabulario | 29 tokens: `<PAD>`=0, `<SOS>`=1, `<EOS>`=2 y las letras a-z (ids 3 a 28) |
+| T (longitud de secuencia) | 27 |
+| Partición | 90 % entrenamiento (1372), 10 % validación (152), semilla 42 |
 
-Módulos principales de `src/labdino/`:
+T sale del nombre más largo (26 letras) más `<SOS>` y `<EOS>`, menos 1 porque `X` e `Y` pierden un token cada uno. El conjunto de validación sirve para medir si la red generaliza a nombres que no vio.
 
-| Módulo | Responsabilidad |
-|---|---|
-| `preprocessing` | Normalización, vocabulario, tokens `<PAD>/<SOS>/<EOS>`, T y pares X/Y desplazados |
-| `model`, `training` | `CharRNN` (Embedding → RNN/LSTM/GRU → Linear), pérdida sin `<PAD>`, split y bucle con early stopping |
-| `sampling` | Muestreo autoregresivo con temperatura, top-k y top-p; métricas de novedad |
-| `artifacts` | Guardar y cargar el modelo para generar nombres sin reentrenar |
-| `ollama_client`, `identity` | Cliente HTTP de Ollama; prompt, esquema JSON, validación y reintentos de la ficha |
-| `chat` | Prompt de sistema con la ficha, saludo y detección de peticiones que llevan imagen |
-| `image_client` | Cliente HTTP del servidor de imágenes y construcción del prompt visual |
+## 4. Modelo de caracteres
 
-## Cómo funciona
+**Formulación.** Un nombre es una secuencia de caracteres $x_1,\dots,x_n$. El modelo de lenguaje aprende a predecir el siguiente carácter dado los anteriores:
 
-### 1. Generador de nombres
+$$p(x_t \mid x_{<t}) = \text{softmax}(W h_t + b)$$
 
-Un modelo de lenguaje a nivel de carácter aprende a predecir la siguiente letra de un nombre de dinosaurio y, al generar,
-usa cada carácter producido como entrada del siguiente paso (autoregresivo).
+donde $h_t$ es el estado oculto de la GRU (una celda recurrente que resume lo leído hasta $t$). La pérdida es la entropía cruzada, que castiga dar poca probabilidad al carácter correcto, y se ignora en las posiciones `<PAD>`:
 
-- **Datos:** [`data/dinos.csv`](data/dinos.csv), copia de [jpospinalo/MachineLearning](https://github.com/jpospinalo/MachineLearning/blob/main/nlp/dinos.csv).
-  Normalizado quedan 1524 nombres, vocabulario de 29 tokens y T = 27.
-- **Preprocesamiento:** secuencias `[<SOS>, c₁…cₙ, <EOS>]` rellenadas con `<PAD>`; entrada `X = [x₀…x_{T-1}]`, objetivo `Y = [x₁…x_T]`.
-- **Entrenamiento:** Adam, entropía cruzada que ignora `<PAD>`, CPU y semilla 42. Dos configuraciones con el mismo split (90/10), batch y
-  learning rate, y early stopping sobre la pérdida de validación. Se guarda el checkpoint de la **mejor** época, no el último.
+$$\mathcal{L} = -\frac{1}{|\mathcal{M}|}\sum_{t \in \mathcal{M}} \log p(y_t \mid x_{\le t}), \qquad \mathcal{M} = \{t : y_t \neq \texttt{<PAD>}\}$$
 
-| Config | Arquitectura | Parámetros | Mejor val loss | Mejor época |
+**Arquitectura.** `Embedding` (cada id pasa a un vector de 32 números) → GRU → capa lineal de 29 salidas. Optimizador Adam, lr 0.003, batch 64, CPU, semilla 42. *Early stopping* con paciencia 10: se detiene si la pérdida de validación no mejora en 10 épocas, y se guarda la mejor época.
+
+**Comparación de dos configuraciones** (mismo split, batch y lr; [evidence/training_summary.md](evidence/training_summary.md)):
+
+| | A | B (elegida) |
+|---|---|---|
+| Capas · hidden · dropout | 1 · 128 · 0.0 | 2 · 256 · 0.2 |
+| Parámetros | 66 877 | 625 853 |
+| Épocas corridas | 23 | 18 |
+| Mejor época | 13 | 8 |
+| Mejor pérdida de validación | 1.5716 | **1.5589** |
+| Pérdida de entrenamiento final | 1.0913 | 0.8045 |
+
+![Curvas de pérdida de A y B](evidence/loss_curves_comparison.png)
+
+**Criterio de selección** (fijado antes de entrenar): menor pérdida de validación. B gana por 0.013, una diferencia pequeña. B se sobreajusta antes: su pérdida de entrenamiento baja mucho más (0.80 frente a 1.09) mientras la de validación apenas se mueve. El dropout reduce ese efecto pero no lo quita.
+
+## 5. Muestreo
+
+Al generar, el modelo da una distribución $p_i$ sobre los 29 tokens y hay que elegir uno.
+
+- **Temperatura $T$:** $p_i = \text{softmax}(z_i / T)$. Con $T<1$ la distribución se afila (más repetición), con $T>1$ se aplana (más ruido).
+- **Top-k:** solo se sortea entre los $k$ tokens más probables.
+- **Top-p:** solo se sortea entre los tokens más probables cuya probabilidad acumulada llega a $p$.
+
+Se compararon seis estrategias con 1000 muestras cada una ([evidence/generated_names.md](evidence/generated_names.md)):
+
+| Estrategia | Copias del dataset | Repetidos | Longitud media | < 3 caracteres |
 |---|---|---|---|---|
-| A | GRU · 1 capa · hidden 128 | 66 877 | 1.5716 | 13 |
-| **B** (elegida) | GRU · 2 capas · hidden 256 · dropout 0.2 | 625 853 | **1.5589** | 8 |
+| T=0.5 | 7.0 % | 14.5 % | 11.57 | 0.0 % |
+| T=1.0 | 1.0 % | 0.2 % | 11.97 | 0.2 % |
+| T=1.5 | 0.1 % | 0.3 % | 13.15 | 0.8 % |
+| top-k=5 | 4.4 % | 7.6 % | 11.63 | 0.0 % |
+| top-k=3 | 10.7 % | 38.4 % | 11.50 | 0.0 % |
+| **top-p=0.9 (T=1.0)** | 1.2 % | 1.1 % | 11.65 | 0.0 % |
 
-La configuración se eligió por menor pérdida de validación, criterio fijado antes de entrenar. B gana por poco y se sobreajusta antes:
+Se eligió top-p=0.9 con T=1.0: copia poco, repite poco y no genera nombres degenerados. T=1.0 puro copia menos, pero a veces da nombres de menos de 3 caracteres.
 
-![Curvas de pérdida de las configuraciones A y B](evidence/loss_curves_comparison.png)
+Los 10 nombres entregados: Alapentosaurus, Salimimus, Gatarisaurus, **Doractodon**, Kematentaceratops, Revecterris, Mamusaurus, Sauroreptor, Yadanoceratops, Drachyrosuchus. Ninguno está en el dataset. Se eligió Doractodon por ser pronunciable y de longitud moderada.
 
-- **Muestreo:** se compararon seis estrategias con 1000 muestras cada una (copias del dataset, repetidos, longitud, nombres cortos).
-  Se usa **top-p = 0.9 con temperatura 1.0**: casi no copia nombres reales (1.2 %), apenas repite (1.1 %) y no produce nombres degenerados.
-  Detalle y análisis en [evidence/generated_names.md](evidence/generated_names.md).
-- **Novedad:** un nombre solo se acepta si no coincide, con la misma normalización, con ninguno de los 1524 del dataset
-  (`train_names.txt` viaja con los artefactos).
+Limitación: la novedad se mide solo por coincidencia exacta con el dataset, así que un nombre muy parecido a uno real también cuenta como nuevo.
 
-Los 10 nombres entregados: Alapentosaurus, Salimimus, Gatarisaurus, **Doractodon** (elegido), Kematentaceratops, Revecterris,
-Mamusaurus, Sauroreptor, Yadanoceratops y Drachyrosuchus.
+## 6. Identidad con Ollama
 
-### 2. Identidad con Ollama
+Ollama sirve modelos de lenguaje en local. Se usa `gemma4:e2b` en Docker dentro del notebook de SageMaker; nombre, digest y versión (Ollama 0.40.8) quedaron registrados desde la instancia en [ollama/model_info.md](ollama/model_info.md), y la prueba de que responde está en [sagemaker/ollama_sagemaker_ejecutado.ipynb](sagemaker/ollama_sagemaker_ejecutado.ipynb). La ficha de Doractodon se generó en SageMaker con Ollama 0.40.8 (semilla 44, 165 palabras, 480 s), como muestra [sagemaker/ollama_sagemaker_ejecutado.ipynb](sagemaker/ollama_sagemaker_ejecutado.ipynb). Prompt completo en [ollama/identity_prompt.md](ollama/identity_prompt.md).
 
-El nombre elegido pasa a un LLM local (`gemma4:e2b`, Ollama 0.40.6; versiones exactas en [ollama/model_info.md](ollama/model_info.md)).
+- **Esquema JSON** enviado en el parámetro `format`, con 7 claves: `apariencia`, `habitat`, `alimentacion`, `comportamiento`, `caracteristica_distintiva`, `resumen_visual`, `visual_prompt_en`.
+- **Un solo rasgo distintivo**, con la misma ubicación anatómica en los tres campos que lo mencionan.
+- **Validaciones:** JSON parseable, claves completas, campos no vacíos y entre 120 y 230 palabras (se pide 150 a 200). Genera advertencias si menciona especies reales, si la ubicación del rasgo cambia entre campos o si el nombre propio aparece en el prompt de imagen.
+- **Semillas:** se prueban 42, 43 y 44 y se conserva la primera ficha sin advertencias. La 42 dio una advertencia (ubicación anatómica poco clara). La 43 salió limpia, con 176 palabras, y es la elegida.
 
-- **Prompt** ([ollama/identity_prompt.md](ollama/identity_prompt.md)): pide apariencia, hábitat, alimentación, comportamiento y un único rasgo
-  físico distintivo, con pistas de sufijos reales (-saurus, -raptor, -odon, -venator) como orientación y no como plantilla.
-  Exige rasgos coherentes entre sí y una especie inventada.
-- **Salida estructurada:** JSON con claves fijas (el esquema se envía en el parámetro `format`), 150–200 palabras, más `visual_prompt_en`,
-  una frase en inglés pensada para el generador de imágenes.
-- **Validación automática:** reintenta si el JSON no parsea, faltan claves, hay campos vacíos o la longitud se sale de 120–230. Avisa si aparecen
-  nombres de especies reales, si la ubicación del rasgo no coincide entre campos o si el nombre propio se cuela en el prompt de imagen.
-- **Semillas:** prueba 42, 43 y 44 y conserva la primera ficha sin advertencias. La elegida y el motivo quedan en
-  [ollama/identity.json](ollama/identity.json), junto con el prompt, el modelo, los parámetros y la fecha.
+## 7. Imagen
 
-### 3. Imagen
+Se compararon tres opciones con Doractodon, semilla 0, en CPU ([evidence/imagen_comparativa](evidence/imagen_comparativa/README.md)); esta comparativa y la verificación de la sección 9 se hicieron con la versión anterior de la ficha (reptil pardo de zona árida):
 
-`stabilityai/sd-turbo` (diffusers, 4 pasos, CPU ~50 s) genera una fotografía fotorrealista 512x512 a partir de `visual_prompt_en` de la ficha más un estilo fijo (sin el nombre propio).
+<table>
+<tr>
+<td align="center"><img src="evidence/imagen_comparativa/1_amused512_prompt_original.png" width="180"><br><sub>amused-512, 12 pasos, ~55 s</sub></td>
+<td align="center"><img src="evidence/imagen_comparativa/2_amused512_prompt_fotorrealista.png" width="180"><br><sub>amused-512, 24 pasos, ~94 s</sub></td>
+<td align="center"><img src="evidence/imagen_comparativa/3_sdturbo_4pasos.png" width="180"><br><sub>sd-turbo, 4 pasos, ~37-45 s</sub></td>
+</tr>
+</table>
 
-- **Script:** `image_generator/generate_image.py` lee `ollama/identity.json` y guarda `image_generator/outputs/<nombre>.png` y un `.json` con prompt, semilla y parámetros.
-  Usa GPU si hay; en CPU funciona pero tarda.
-- **Colab:** `image_generator/colab_image_server.ipynb` genera la imagen de Doractodon y levanta un servidor `POST /generate` expuesto con ngrok
-  (token en los *Secrets* de Colab como `NGROK_TOKEN`).
-- La app pide la imagen **una sola vez** por dinosaurio y la reutiliza en el chat.
+Se eligió `stabilityai/sd-turbo` porque:
 
-### 4. App web y chat
+- da aspecto de fotografía, mientras amused-512 sale caricaturesco o con textura artificial;
+- tiene un tamaño parecido (~1B de parámetros), como pide la guía;
+- es un modelo destilado que funciona en CPU con 1 a 4 pasos y guidance 0.
 
-FastAPI ([`app/server.py`](app/server.py)) sirve la interfaz ([`app/static/index.html`](app/static/index.html)) y conecta todo el flujo.
+Prompt usado: el `visual_prompt_en` de la ficha más el estilo fotográfico del paso 1g. El prompt negativo (*cartoon, illustration, drawing, ...*) solo se registra en el JSON porque con guidance 0 no tiene efecto.
 
-- **Inicio:** muestra a Doractodon (ficha de `ollama/identity.json` e imagen de `image_generator/outputs/`), con nombre, descripción, imagen e información del modelo de nombres.
-- **Chat:** cada petición a Ollama lleva la ficha como mensaje de sistema, con la regla de no contradecirla. Si el usuario pide que se presente o se describa, la respuesta incluye la imagen.
-- **Nuevo Dinosaurio:** el modelo ya entrenado genera otro nombre, Ollama crea la ficha y se pide la imagen; no se reentrena. Sin `IMAGE_API_URL` la app funciona sin imagen nueva.
-- Endpoints y payloads: [docs/componentes.md](docs/componentes.md).
+## 8. App y chat
 
-## Ejecutar la app localmente
+FastAPI ([`app/server.py`](app/server.py)) sirve la interfaz ([`app/static/index.html`](app/static/index.html)). Payloads completos en [docs/componentes.md](docs/componentes.md).
 
-Necesita un Ollama accesible y, opcionalmente, el servidor de imágenes (si no, el dinosaurio nuevo queda sin imagen).
+| Endpoint | Función |
+|---|---|
+| `GET /api/info` | Datos del modelo de nombres |
+| `GET /api/dino` | Dinosaurio actual |
+| `POST /api/dino/new` | Nombre, ficha e imagen nuevos, sin reentrenar |
+| `POST /api/chat` | Respuesta del dinosaurio; `image_url` solo si se pide presentarse o describirse |
+| `GET /images/{dino_id}.png` | Retrato |
+
+## 9. Verificación de la guía
+
+Pruebas hechas el 2026-10-22 sobre el sitio desplegado. Detalle y tiempos en [evidence/verificacion_entrega.md](evidence/verificacion_entrega.md).
+
+| Ítem de la guía | Estado | Evidencia breve |
+|---|---|---|
+| Diez nombres no son copias | ✅ | ninguno está en `dinos.csv` (1524 nombres) |
+| Identidad coherente | ✅ | hábitat, cuerpo, dieta y conducta concuerdan |
+| Imagen corresponde a los rasgos | ⚠️ | cuerpo, color y entorno sí; el rasgo pequeño no siempre se ve |
+| Chat conserva la identidad | ✅ | 5 turnos; ante "ahora eres un T-rex" respondió que seguía siendo el mismo dinosaurio |
+| Imagen al presentarse o describirse | ✅ | "Preséntate" y "Descríbete" devuelven imagen; "¿Qué comes?" no |
+| Nuevo Dinosaurio sin reentrenar | ✅ | el servidor solo hace inferencia; mismo `model.pt` (sha256 idéntico al del repo) |
+| Sitio accesible | ✅ | `GET /` 200 en 0.26 s |
+| Repo sin información sensible | ✅ | búsqueda de tokens y claves sin resultados; `.env` ignorado |
+
+## 10. Cómo ejecutar
+
+Requisitos: [uv](https://docs.astral.sh/uv/), Python 3.12 y un Ollama accesible con `ollama pull gemma4:e2b`.
 
 ```bash
-cp .env.example .env                     # completa OLLAMA_BASE_URL, OLLAMA_MODEL e IMAGE_API_URL
+uv sync && uv run pytest                      # dependencias y pruebas
+cp .env.example .env                          # completar OLLAMA_BASE_URL, OLLAMA_MODEL, IMAGE_API_URL
 set -a; source .env; set +a
-uv run uvicorn app.server:app --host 0.0.0.0 --port 8000
+uv run uvicorn app.server:app --port 8000     # abrir http://localhost:8000
 ```
 
-Abrir <http://localhost:8000>. Con `uv sync` ya se instalan las dependencias de `src/labdino`; si falta FastAPI o uvicorn, `uv pip install fastapi uvicorn`.
+Reentrenar y regenerar `evidence/` y `name_generator/artifacts/` (unos 20 s en CPU, determinista):
 
-## Despliegue
+```bash
+uv run jupyter nbconvert --to notebook --execute --inplace name_generator/train_and_evaluate.ipynb
+```
 
-Orden: SageMaker → Colab → EC2. Las URLs de ngrok cambian cada vez que se reinicia un túnel y no se versionan.
+Generar la ficha: `uv run python ollama/generate_identity.py`.
 
-1. **SageMaker:** crear la *lifecycle configuration* on-start con `sagemaker/on-start.sh`, crear el notebook `ml.m5.xlarge` (volumen ≥ 30 GB) con ella y abrir `sagemaker/ollama_sagemaker.ipynb` para verificar Docker, el modelo y una respuesta.
-2. **Token de ngrok en SageMaker:** guardarlo en `/home/ec2-user/SageMaker/.ngrok_token` (fuera de git) y reiniciar el notebook; la lifecycle abre el túnel al puerto 11434. Leer la URL en la última celda del notebook.
-3. **Colab:** abrir `image_generator/colab_image_server.ipynb` con GPU T4, poner `NGROK_TOKEN` en *Secrets*, ejecutar todas las celdas y copiar la URL impresa (`IMAGE_API_URL`).
-4. **EC2:** lanzar una instancia Amazon Linux 2023 con `deploy/ec2_user_data.sh` como user data y el puerto 80 abierto en el security group. Construye la imagen Docker y arranca la app.
-5. **Variables:** en la instancia, escribir `/opt/labdino.env` con `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_NGROK_SKIP_WARNING=true`, `IMAGE_API_URL` e `IMAGE_NGROK_SKIP_WARNING=true`, y reiniciar con `docker restart labdino`.
-6. **Probar:** abrir la IP pública de la EC2 y recorrer la lista de verificación de abajo.
+**Despliegue en AWS.** El script [`sagemaker/on-start.sh`](sagemaker/on-start.sh) levanta Ollama y el servidor de imágenes en el notebook `ml.m5.xlarge` (volumen de al menos 30 GB). La EC2 usa [`deploy/ec2_user_data.sh`](deploy/ec2_user_data.sh) con el puerto 80 abierto, y las variables van en `/opt/labdino.env` (luego `docker restart labdino`). Antes de construir la imagen Docker, `image_generator/outputs/` debe contener `doractodon.png`.
 
-Estado: desplegado en AWS (**Sitio web:** http://54.211.115.130, AWS Academy: solo responde mientras el Learner Lab está activo).
-
-**Arquitectura realmente usada:** el notebook SageMaker `labdino-ollama` (ml.m5.xlarge) en la VPC por defecto corre Ollama (gemma4:e2b, :11434) y el servidor de imágenes sd-turbo en CPU (`image_generator/server.py` en Docker, :8001) mediante `sagemaker/on-start.sh`. La EC2 t3.medium `labdino-app` corre la app (:80) y los alcanza por IP privada con un security group compartido, sin ngrok. Colab/ngrok quedan como alternativa.
-
-Para la sustentación: iniciar el Learner Lab, encender el notebook (Start) y la EC2. Si la IP pública de la EC2 cambia, actualizar el link; si cambia la IP privada del notebook, editar `/opt/labdino.env` y `docker restart labdino`.
-El `Dockerfile` copia `image_generator/outputs/`, que debe contener `doractodon.png` antes de construir.
-
-## Configuración
-
-El repo no trae URLs ni credenciales. Las variables se leen del entorno (plantilla en [`.env.example`](.env.example); `.env` está en `.gitignore`):
+**Variables** (plantilla en [`.env.example`](.env.example)):
 
 | Variable | Descripción | Por defecto |
 |---|---|---|
 | `OLLAMA_BASE_URL` | URL base de Ollama | obligatoria |
 | `OLLAMA_MODEL` | Modelo a usar | obligatoria |
-| `OLLAMA_NGROK_SKIP_WARNING` | Añade la cabecera `ngrok-skip-browser-warning` | `false` |
-| `OLLAMA_CONNECT_TIMEOUT` / `OLLAMA_READ_TIMEOUT` | Tiempos de espera en segundos | `5` / `300` |
-| `OLLAMA_IDENTITY_THINK` | Razonamiento del modelo al crear la ficha | `true` |
-| `OLLAMA_CHAT_THINK` | Razonamiento del modelo en el chat | `false` |
-| `IMAGE_API_URL` | URL base del servidor de imágenes (Colab/ngrok); vacía = sin imagen nueva | vacía |
-| `IMAGE_NGROK_SKIP_WARNING` | Añade la cabecera `ngrok-skip-browser-warning` | `false` |
-| `IMAGE_TIMEOUT` | Tiempo de espera de la imagen en segundos | `300` |
+| `IMAGE_API_URL` | URL del servidor de imágenes; vacía = sin imagen nueva | vacía |
+| `OLLAMA_CONNECT_TIMEOUT` / `OLLAMA_READ_TIMEOUT` | Esperas en segundos | `5` / `300` |
+| `OLLAMA_IDENTITY_THINK` / `OLLAMA_CHAT_THINK` | Razonamiento del modelo en ficha / chat | `true` / `false` |
+| `IMAGE_TIMEOUT` | Espera de la imagen en segundos | `300` |
+| `*_NGROK_SKIP_WARNING` | Cabecera para túneles ngrok | `false` |
 
-Los errores de conexión, de modelo inexistente o de configuración indican qué variable revisar.
+**Estructura**
 
-## Reproducir los resultados
-
-```bash
-# Reentrenar, evaluar, muestrear y regenerar evidence/ y name_generator/artifacts/ (≈20 s en CPU)
-uv run jupyter nbconvert --to notebook --execute --inplace name_generator/train_and_evaluate.ipynb
-
-# Regenerar el registro del modelo de Ollama (sirve también en SageMaker)
-uv run python ollama/write_model_info.py
-
-# Reescribir solo el prompt de identidad, sin llamar a Ollama
-uv run python ollama/generate_identity.py --show-prompt
+```
+src/labdino/       preprocesamiento, modelo, entrenamiento, muestreo, cliente Ollama, chat
+name_generator/    notebook de entrenamiento y artifacts/ (lo único que carga el backend)
+ollama/            prompt, scripts y ficha generada
+image_generator/   generador y servidor de imágenes
+sagemaker/         on-start.sh y notebook de verificación
+app/  deploy/      backend, interfaz, Dockerfile y user data de la EC2
+evidence/  docs/   resultados del entrenamiento, muestreo, imágenes y verificación
+data/  tests/      dinos.csv y pruebas con pytest
 ```
 
-El entrenamiento es determinista: reproduce los mismos checkpoints y los mismos 10 nombres. El filtro `nbstripout` quita las salidas del
-notebook al hacer commit.
+## 11. Limitaciones
 
-### Artefactos del generador
-
-| Archivo | Contenido |
-|---|---|
-| `model.pt` | Pesos de la mejor época de la configuración B |
-| `vocab.json` | Vocabulario (el índice es el id) |
-| `config.json` | Arquitectura, capas, hidden, dropout, T, ids especiales, muestreo por defecto y criterio de selección |
-| `train_names.txt` | Los 1524 nombres normalizados, para rechazar copias |
-
-Los checkpoints de A y B están en `evidence/checkpoints/` como evidencia.
-
-## Hoja de ruta
-
-- [x] Generador de nombres: entrenamiento, comparación de dos configuraciones, muestreo y artefactos
-- [x] Identidad con Ollama en local
-- [x] Ollama en SageMaker (`m5.xlarge`, Docker con `data-root` persistente y script `on-start`): implementado en código
-- [x] Imagen con un modelo text-to-image a partir de la ficha: implementado en código
-- [x] Aplicación web con el chat y el botón **Nuevo Dinosaurio**: implementada en código
-- [x] Despliegue en AWS: sitio publicado en http://54.211.115.130
-
-## Verificación antes de la entrega
-
-- [x] Los diez nombres generados no son copias directas del conjunto de entrenamiento
-- [x] El dinosaurio seleccionado tiene una identidad coherente
-- [ ] La imagen corresponde con los rasgos descritos (aproximada: sd-turbo no siempre dibuja el rasgo distintivo)
-- [x] El chat conserva la identidad durante la conversación
-- [x] La imagen aparece en el chat al presentar o describir al dinosaurio
-- [x] El botón Nuevo Dinosaurio inicia una nueva generación sin reentrenar el modelo
-- [x] El sitio web es accesible
-- [x] El repositorio contiene las instrucciones necesarias y no publica información sensible
+- **Lentitud en CPU.** Nuevo Dinosaurio tardó 466.9 s la primera vez (arranque en frío) y 248.6 s la segunda. El chat responde en 5 a 20 s. Hay que avisarlo en la demostración.
+- **Imagen aproximada.** sd-turbo no siempre dibuja el rasgo distintivo; en Doractodon la placa iridiscente del lomo no se distingue con claridad en la imagen.
+- **IP pública.** Cambia al reiniciar la EC2, y hay que actualizar el enlace del sitio. Si cambia la IP privada del notebook, se edita `/opt/labdino.env`.
+- **Diferencia entre A y B.** Es pequeña (0.013 en pérdida de validación) y viene de una sola partición y una sola semilla.
+- **Novedad de nombres.** Se mide solo por coincidencia exacta con el dataset.

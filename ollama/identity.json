@@ -1,19 +1,19 @@
 {
   "name": "doractodon",
   "identity": {
-    "apariencia": "Doractodon presenta un cuerpo robusto y de tamaño mediano, con extremidades fuertes adaptadas a la locomoción terrestre. Su piel es de un tono terroso y su estructura general es maciza, con una postura erguida y pesada para soportar su masa corporal.",
-    "habitat": "Habita en llanuras áridas y matorrales semiáridos caracterizados por suelos calcáreos y una vegetación baja y resistente a la sequía, con temperaturas fluctuantes.",
-    "alimentacion": "Consume una dieta herbívora especializada, utilizando sus dientes para triturar tallos fibrosos y semillas duras que encuentra en el subsuelo, lo que requiere una masticación eficiente.",
-    "comportamiento": "El dinosaurio es predominantemente solitario y exhibe un comportamiento cauteloso al forrajear. Prefiere moverse lentamente por el terreno para maximizar la eficiencia de la búsqueda de alimento y evita interacciones con otros individuos.",
-    "caracteristica_distintiva": "Una protuberancia ósea única, de forma cónica, se localiza en la parte superior del hocico, aumentando la capacidad de trituración de los dientes.",
-    "resumen_visual": "Este dinosaurio es un animal de tamaño mediano, de color marrón terroso, con una postura erguida y una protuberancia cónica en la parte superior del hocico que modifica su dentición.",
-    "visual_prompt_en": "A dinosaur with a robust, medium-sized body, earthy brown color, upright posture, and a conical bony protrusion on the top of the snout."
+    "apariencia": "Doractodon presenta un cuerpo robusto y bajo, con una estructura pesada adaptada al terreno pantanoso. Posee una piel gruesa de color verde oliva oscuro que le proporciona camuflaje en el sotobosque. Sus extremidades son cortas y fuertes, diseñadas para la locomoción lenta y estable.",
+    "habitat": "Vive en pantanos tropicales con vegetación densa y exuberante. El clima es húmedo y cálido, con abundante agua estancada y suelos anegados.",
+    "alimentacion": "Consume plantas fibrosas y raíces mediante una mandíbula potente. La dentición especializada, compuesta por dientes cónicos, permite desgarrar la vegetación densa con gran eficiencia.",
+    "comportamiento": "El dinosaurio es predominantemente solitario, buscando refugio en áreas boscosas durante el día. Exhibe movimientos cautelosos y evita el contacto con depredadores grandes, permaneciendo inmóvil en el barro.",
+    "caracteristica_distintiva": "Una placa ósea calcificada de color iridiscente emerge a lo largo del lomo dorsal, justo por encima de la columna vertebral.",
+    "resumen_visual": "Este dinosaurio es un reptil robusto de tamaño medio, de color verde oliva, con una placa ósea iridiscente visible a lo largo de su lomo dorsal.",
+    "visual_prompt_en": "A dinosaur, robust medium-sized reptile, olive green color, with an iridescent bone plate along its dorsal spine."
   },
   "model": "gemma4:e2b",
-  "ollama_version": "0.40.6",
+  "ollama_version": "0.40.8",
   "parameters": {
     "temperature": 0.7,
-    "seed": 43,
+    "seed": 44,
     "think": true,
     "format": "json_schema",
     "seeds_to_try": [
@@ -22,10 +22,11 @@
       44
     ]
   },
-  "n_attempts": 2,
+  "n_attempts": 3,
   "seeds_tried": [
     42,
-    43
+    43,
+    44
   ],
   "seed_trials": [
     {
@@ -35,19 +36,28 @@
       "advertencias": [
         "caracteristica_distintiva no indica una ubicación anatómica reconocible"
       ],
-      "palabras": 180
+      "palabras": 161
     },
     {
       "seed": 43,
       "valida": true,
       "errores": [],
+      "advertencias": [
+        "caracteristica_distintiva no indica una ubicación anatómica reconocible"
+      ],
+      "palabras": 163
+    },
+    {
+      "seed": 44,
+      "valida": true,
+      "errores": [],
       "advertencias": [],
-      "palabras": 176
+      "palabras": 165
     }
   ],
-  "chosen_seed": 43,
-  "choice_reason": "Seed 43: primera ficha válida y sin advertencias (semillas probadas: [42, 43]).",
-  "elapsed_seconds": 34.5,
+  "chosen_seed": 44,
+  "choice_reason": "Seed 44: primera ficha válida y sin advertencias (semillas probadas: [42, 43, 44]).",
+  "elapsed_seconds": 480.5,
   "prompt": {
     "system": "Eres un paleontólogo y escritor de fichas de especies ficticias. Escribes en español, en tercera persona y en presente, con un tono científico claro. Respondes SIEMPRE y únicamente con un objeto JSON válido, sin texto adicional, sin markdown y sin comentarios.\n\nPrincipios de tu trabajo:\n- Coherencia: todos los rasgos de la especie encajan entre sí. El hábitat explica el cuerpo, el cuerpo explica la dieta y la dieta explica el comportamiento.\n- La especie es inventada: no copies ni parafrasees ninguna especie real, no menciones ni compares con especies reales, y no afirmes hallazgos fósiles ni lugares de excavación reales.\n- El nombre de la especie es un nombre propio inventado: lo usas tal cual, sin corregirlo ni sustituirlo.",
     "user": "Crea la ficha de una especie de dinosaurio ficticia llamada «Doractodon».\n\n«Doractodon» es un nombre propio inventado: no lo corrijas, no lo sustituyas por otro ni lo reinterpretes como una especie real.\n\nContexto sobre sufijos de nombres reales (solo orientación, no plantilla):\n- -saurus: «lagarto»\n- -raptor: «ladrón o rapaz»\n- -odon: «diente»\n- -venator: «cazador»\nEl sufijo relevante para este nombre es -odon («diente»); -saurus, -raptor, -venator son solo contexto.\nNo repitas estas pistas en la ficha ni conviertas el nombre en un chiste.\n\nAntes de escribir, define mentalmente un perfil coherente: hábitat, tamaño, locomoción, dentición, dieta, comportamiento y UN único rasgo físico distintivo visible, con su ubicación anatómica exacta (una sola parte del cuerpo, por ejemplo «en la parte superior del hocico» o «a lo largo del lomo»). Después escribe la ficha con estas claves, todas en texto (cadena de caracteres), con esta orientación de extensión:\n- \"apariencia\": el cuerpo en general (tamaño, postura, proporciones, piel o plumas y colores generales). NO menciones el rasgo distintivo (unas 40 palabras).\n- \"habitat\": clima, terreno y vegetación donde vive (unas 25 palabras).\n- \"alimentacion\": qué come y cómo lo obtiene, acorde con su dentición y su cuerpo (unas 25 palabras).\n- \"comportamiento\": hábitos sociales, actividad y relación con otros animales (unas 30 palabras).\n- \"caracteristica_distintiva\": el único rasgo FÍSICO y visible e inconfundible (por ejemplo la forma, textura o color de una parte del cuerpo), no un hábito ni una conducta, con su ubicación anatómica (unas 25 palabras).\n- \"resumen_visual\": una sola oración que describe al dinosaurio y usa la palabra «dinosaurio» como sujeto, SIN el nombre propio; solo lo que se vería en una imagen, con términos concretos (formas, colores, texturas, tamaño aproximado, postura, entorno), incluyendo el rasgo distintivo y sin compararlo con especies reales (unas 30 palabras).\n- \"visual_prompt_en\": una frase corta en inglés (máximo 35 palabras) para un generador de imágenes, con «a dinosaur» como sujeto y SIN el nombre propio, que resuma el aspecto con términos concretos e incluya el rasgo distintivo; no cuenta para el límite de palabras.\n\nEl rasgo distintivo (único, con la misma ubicación y el mismo término):\n- Aparece solo en \"caracteristica_distintiva\", \"resumen_visual\" y \"visual_prompt_en\". \"apariencia\" no lo menciona.\n- Usa la misma ubicación anatómica y la misma palabra para el rasgo en esos tres campos; en \"visual_prompt_en\", su traducción literal al inglés.\n- No lo sitúes en otra parte del cuerpo ni lo describas en dos lugares distintos, y no añadas un segundo rasgo distintivo (por ejemplo, no mezcles cráneo, nuca, cuello, espalda y lomo para el mismo rasgo).\n\nEstilo: redacta de forma natural y directa, con sujeto claro; evita las construcciones impersonales o de observación como «se detecta que», «se observa que» o «se aprecia que».\n\nReglas:\n- La ficha (suma de las seis primeras claves, sin \"visual_prompt_en\") debe tener entre 150 y 200 palabras.\n- Tercera persona y presente; sin listas, sin saltos de línea dentro de los campos.\n- Ningún campo puede quedar vacío y no añadas claves distintas a las siete indicadas."
@@ -56,7 +66,7 @@
     "json_valido": true,
     "claves_ok": true,
     "campos_no_vacios": true,
-    "palabras": 176,
+    "palabras": 165,
     "longitud_ok": true,
     "errores": [],
     "advertencias": []
@@ -69,7 +79,7 @@
         "json_valido": true,
         "claves_ok": true,
         "campos_no_vacios": true,
-        "palabras": 180,
+        "palabras": 161,
         "longitud_ok": true,
         "errores": [],
         "advertencias": [
@@ -84,12 +94,27 @@
         "json_valido": true,
         "claves_ok": true,
         "campos_no_vacios": true,
-        "palabras": 176,
+        "palabras": 163,
+        "longitud_ok": true,
+        "errores": [],
+        "advertencias": [
+          "caracteristica_distintiva no indica una ubicación anatómica reconocible"
+        ]
+      }
+    },
+    {
+      "intento": 1,
+      "seed": 44,
+      "chequeos": {
+        "json_valido": true,
+        "claves_ok": true,
+        "campos_no_vacios": true,
+        "palabras": 165,
         "longitud_ok": true,
         "errores": [],
         "advertencias": []
       }
     }
   ],
-  "generated_utc": "2026-10-19 16:23:36"
+  "generated_utc": "2026-10-23 02:54:55"
 }

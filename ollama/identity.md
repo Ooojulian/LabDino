@@ -1,43 +1,44 @@
 # Doractodon
 
-*Ficha ficticia generada con `gemma4:e2b` (Ollama 0.40.6) el 2026-10-19 16:23:36 UTC; temperature 0.7, seed 43, think activado, 2 intento(s), 34.5 s.*
+*Ficha ficticia generada con `gemma4:e2b` (Ollama 0.40.8) el 2026-10-23 02:54:55 UTC; temperature 0.7, seed 44, think activado, 3 intento(s), 480.5 s.*
 
 ## Apariencia
 
-Doractodon presenta un cuerpo robusto y de tamaño mediano, con extremidades fuertes adaptadas a la locomoción terrestre. Su piel es de un tono terroso y su estructura general es maciza, con una postura erguida y pesada para soportar su masa corporal.
+Doractodon presenta un cuerpo robusto y bajo, con una estructura pesada adaptada al terreno pantanoso. Posee una piel gruesa de color verde oliva oscuro que le proporciona camuflaje en el sotobosque. Sus extremidades son cortas y fuertes, diseñadas para la locomoción lenta y estable.
 
 ## Habitat
 
-Habita en llanuras áridas y matorrales semiáridos caracterizados por suelos calcáreos y una vegetación baja y resistente a la sequía, con temperaturas fluctuantes.
+Vive en pantanos tropicales con vegetación densa y exuberante. El clima es húmedo y cálido, con abundante agua estancada y suelos anegados.
 
 ## Alimentacion
 
-Consume una dieta herbívora especializada, utilizando sus dientes para triturar tallos fibrosos y semillas duras que encuentra en el subsuelo, lo que requiere una masticación eficiente.
+Consume plantas fibrosas y raíces mediante una mandíbula potente. La dentición especializada, compuesta por dientes cónicos, permite desgarrar la vegetación densa con gran eficiencia.
 
 ## Comportamiento
 
-El dinosaurio es predominantemente solitario y exhibe un comportamiento cauteloso al forrajear. Prefiere moverse lentamente por el terreno para maximizar la eficiencia de la búsqueda de alimento y evita interacciones con otros individuos.
+El dinosaurio es predominantemente solitario, buscando refugio en áreas boscosas durante el día. Exhibe movimientos cautelosos y evita el contacto con depredadores grandes, permaneciendo inmóvil en el barro.
 
 ## Caracteristica distintiva
 
-Una protuberancia ósea única, de forma cónica, se localiza en la parte superior del hocico, aumentando la capacidad de trituración de los dientes.
+Una placa ósea calcificada de color iridiscente emerge a lo largo del lomo dorsal, justo por encima de la columna vertebral.
 
 ## Resumen visual
 
-Este dinosaurio es un animal de tamaño mediano, de color marrón terroso, con una postura erguida y una protuberancia cónica en la parte superior del hocico que modifica su dentición.
+Este dinosaurio es un reptil robusto de tamaño medio, de color verde oliva, con una placa ósea iridiscente visible a lo largo de su lomo dorsal.
 
 ## Visual prompt en
 
-A dinosaur with a robust, medium-sized body, earthy brown color, upright posture, and a conical bony protrusion on the top of the snout.
+A dinosaur, robust medium-sized reptile, olive green color, with an iridescent bone plate along its dorsal spine.
 
 ## Selección de la semilla
 
-Seed 43: primera ficha válida y sin advertencias (semillas probadas: [42, 43]).
+Seed 44: primera ficha válida y sin advertencias (semillas probadas: [42, 43, 44]).
 
 - Seed 42: válida, 1 advertencia(s): ['caracteristica_distintiva no indica una ubicación anatómica reconocible']
-- Seed 43: válida, sin advertencias
+- Seed 43: válida, 1 advertencia(s): ['caracteristica_distintiva no indica una ubicación anatómica reconocible']
+- Seed 44: válida, sin advertencias
 
 ## Chequeos
 
-- Palabras de la ficha: 176 (pedido 150-200)
+- Palabras de la ficha: 165 (pedido 150-200)
 - Claves, campos no vacíos y longitud: OK

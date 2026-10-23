@@ -18,6 +18,11 @@ def test_build_image_prompt_uses_visual_prompt_and_style():
     assert out == f"A brown dinosaur, {STYLE}"
 
 
+def test_build_image_prompt_with_name():
+    out = build_image_prompt({"visual_prompt_en": "A brown dinosaur."}, "doractodon")
+    assert out == f"Doractodon, a fictional dinosaur species: A brown dinosaur, {STYLE}"
+
+
 def test_build_image_prompt_fallback():
     assert build_image_prompt({}).startswith("a fictional dinosaur, ")
 

@@ -26,7 +26,7 @@ from diffusers import AutoPipelineForText2Image
 ROOT = Path(__file__).resolve().parent.parent
 MODEL_ID = "stabilityai/sd-turbo"
 STYLE = ("wildlife photograph, photorealistic, National Geographic, full body, wide shot, side view, "
-         "dry open landscape, natural daylight, realistic skin texture")
+         "in its natural habitat, natural daylight, realistic skin texture")
 NEGATIVE = "cartoon, illustration, drawing, 3d render, anime, toy, cgi, painting, text, watermark"  # sd-turbo (guidance 0) lo ignora; se registra en el json
 STEPS = 4
 GUIDANCE = 0.0
@@ -41,8 +41,11 @@ def load_pipeline() -> AutoPipelineForText2Image:
     return AutoPipelineForText2Image.from_pretrained(MODEL_ID, torch_dtype=dtype, **kwargs).to(device)
 
 
-def build_prompt(identity: dict) -> str:
+def build_prompt(identity: dict, name: str | None = None) -> str:
+    """Prompt: nombre (si viene) + frase visual de Ollama + estilo fijo."""
     visual = identity.get("visual_prompt_en", "").strip().rstrip(".")
+    if name:
+        return f"{name.strip().capitalize()}, a fictional dinosaur species: {visual or 'a fictional dinosaur'}, {STYLE}"
     return f"{visual}, {STYLE}" if visual else f"a fictional dinosaur, {STYLE}"
 
 
@@ -59,7 +62,7 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     a = p.parse_args()
     data = json.loads(a.identity.read_text(encoding="utf-8"))
-    prompt = build_prompt(data["identity"])
+    prompt = build_prompt(data["identity"], data["name"])
     out = a.out or ROOT / "image_generator" / "outputs" / f"{data['name']}.png"
     out.parent.mkdir(parents=True, exist_ok=True)
     print("Prompt:", prompt, file=sys.stderr)

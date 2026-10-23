@@ -12,5 +12,5 @@ Generado por `ollama/write_model_info.py` a partir de la API de Ollama.
 | Cuantización | Q4_K_M |
 | Formato | gguf |
 | Capacidades | completion, vision, audio, tools, thinking |
-| Versión de Ollama | 0.40.6 |
-| Registrado (UTC) | 2026-10-19 15:53:34 |
+| Versión de Ollama | 0.40.8 |
+| Registrado (UTC) | 2026-10-23 02:46:54 |

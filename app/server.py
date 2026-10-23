@@ -58,7 +58,7 @@ def name_model_info() -> dict:
     }
 
 
-def make_image(dino_id: str, identity: dict) -> str | None:
+def make_image(dino_id: str, name: str, identity: dict) -> str | None:
     """Genera la imagen UNA vez y la guarda en disco; devuelve su URL o None si no hay servidor."""
     path = IMAGES / f"{dino_id}.png"
     if path.exists():
@@ -67,7 +67,7 @@ def make_image(dino_id: str, identity: dict) -> str | None:
     if client is None:
         return None
     try:
-        path.write_bytes(client.generate(build_image_prompt(identity), seed=random.randint(0, 2**31 - 1)))
+        path.write_bytes(client.generate(build_image_prompt(identity, name), seed=random.randint(0, 2**31 - 1)))
     finally:
         client.close()
     return f"/images/{dino_id}.png"
@@ -124,7 +124,7 @@ def new_dino():
         dino_id = uuid.uuid4().hex[:12]
         meta = {"id": dino_id, "ollama_model": client.model, "seed": res.seed, "eleccion": res.choice_reason}
         try:
-            url, err = make_image(dino_id, res.identity), None
+            url, err = make_image(dino_id, name, res.identity), None
         except ImageError as e:
             url, err = None, str(e)
         return register(name, res.identity, meta, url, err)
